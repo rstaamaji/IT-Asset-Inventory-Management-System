@@ -1,11 +1,13 @@
 import '../styles/dashboard.css';
 
-/* ---- Placeholder data ---- */
-const STATS = [
+/* ============================================================
+   1. Summary Statistics (4 core metric cards)
+   ============================================================ */
+const SUMMARY_STATS = [
   {
     label: 'Total Assets',
-    value: '1,248',
-    meta: 'Across all categories',
+    value: '1,280',
+    change: '+12 this month',
     accent: 'accent-blue',
     iconColor: 'blue',
     icon: (
@@ -15,9 +17,9 @@ const STATS = [
     ),
   },
   {
-    label: 'Available',
-    value: '342',
-    meta: 'Ready to assign',
+    label: 'Available Assets',
+    value: '315',
+    change: '24.6% of inventory',
     accent: 'accent-green',
     iconColor: 'green',
     icon: (
@@ -27,9 +29,9 @@ const STATS = [
     ),
   },
   {
-    label: 'Assigned',
-    value: '867',
-    meta: 'Currently in use',
+    label: 'Assigned Assets',
+    value: '890',
+    change: '69.5% allocated',
     accent: 'accent-blue',
     iconColor: 'blue',
     icon: (
@@ -40,8 +42,8 @@ const STATS = [
   },
   {
     label: 'In Repair',
-    value: '39',
-    meta: 'Under maintenance',
+    value: '42',
+    change: '3.3% in service',
     accent: 'accent-amber',
     iconColor: 'amber',
     icon: (
@@ -52,103 +54,212 @@ const STATS = [
   },
 ];
 
-const RECENT_ASSETS = [
-  { id: 'AST-0042', name: 'Dell XPS 15', type: 'Laptop',    status: 'Assigned',  assignee: 'Sarah K.',   date: '29 Sep 2026' },
-  { id: 'AST-0041', name: 'HP LaserJet M404', type: 'Printer',  status: 'In Stock',  assignee: '—',          date: '28 Sep 2026' },
-  { id: 'AST-0040', name: 'Cisco RV340',  type: 'Router',   status: 'In Use',    assignee: 'IT Dept.',   date: '27 Sep 2026' },
-  { id: 'AST-0039', name: 'iPhone 15 Pro', type: 'Smartphone', status: 'In Repair', assignee: 'Mark L.',    date: '26 Sep 2026' },
-  { id: 'AST-0038', name: 'LG 27UK850',  type: 'Monitor',  status: 'Assigned',  assignee: 'Jana M.',    date: '25 Sep 2026' },
-  { id: 'AST-0037', name: 'ThinkPad X1 Carbon', type: 'Laptop', status: 'Returned', assignee: '—',         date: '24 Sep 2026' },
+/* ============================================================
+   2. Asset Status Overview (5 key lifecycle statuses)
+   ============================================================ */
+const STATUS_OVERVIEW = [
+  { label: 'In Stock',   count: 315, pct: 24.6, color: '#64748b' },
+  { label: 'Assigned',   count: 578, pct: 45.2, color: '#2563eb' },
+  { label: 'In Use',     count: 312, pct: 24.4, color: '#16a34a' },
+  { label: 'In Repair',  count: 42,  pct: 3.3,  color: '#d97706' },
+  { label: 'Disposed',   count: 33,  pct: 2.5,  color: '#dc2626' },
 ];
 
-const ACTIVITY_FEED = [
-  { color: 'green', text: <><strong>Dell XPS 15</strong> assigned to <strong>Sarah K.</strong></>, meta: 'Today, 14:22 · By Admin' },
-  { color: 'amber', text: <><strong>iPhone 15 Pro</strong> sent to repair — screen damage</>, meta: 'Today, 11:07 · By Mark L.' },
-  { color: 'blue',  text: <>3 new assets added to <strong>Laptop</strong> category</>, meta: 'Yesterday, 16:43 · By Admin' },
-  { color: 'gray',  text: <><strong>ThinkPad X1 Carbon</strong> returned from assignment</>, meta: 'Yesterday, 09:15 · By Jana M.' },
-  { color: 'red',   text: <><strong>Cisco RV340</strong> maintenance due in 7 days</>, meta: 'Sep 27, 2026 · System alert' },
-  { color: 'green', text: <>Quarterly audit completed — <strong>1,248</strong> assets verified</>, meta: 'Sep 25, 2026 · By Admin' },
+/* ============================================================
+   3. Recent Activity (Realistic IT operations events)
+   ============================================================ */
+const RECENT_ACTIVITIES = [
+  {
+    type: 'assigned',
+    color: 'blue',
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
+      </svg>
+    ),
+    text: <><strong>ThinkPad T14 Gen 4</strong> assigned to <strong>Michael Scott</strong> (Engineering)</>,
+    time: '14 minutes ago',
+    actor: 'Admin (System)',
+  },
+  {
+    type: 'returned',
+    color: 'green',
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" />
+      </svg>
+    ),
+    text: <><strong>Dell UltraSharp 27&quot; Monitor</strong> returned from <strong>Rachel Green</strong> (Marketing)</>,
+    time: '1 hour ago',
+    actor: 'IT Helpdesk',
+  },
+  {
+    type: 'repair',
+    color: 'amber',
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+      </svg>
+    ),
+    text: <><strong>HP Color LaserJet Pro M479</strong> moved to repair — fuser unit inspection</>,
+    time: '3 hours ago',
+    actor: 'Dave Miller (Ops)',
+  },
+  {
+    type: 'added',
+    color: 'purple',
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+      </svg>
+    ),
+    text: <><strong>5x Apple MacBook Pro 16&quot; (M3 Pro)</strong> added to stock under PO #8921</>,
+    time: '5 hours ago',
+    actor: 'Admin (System)',
+  },
+  {
+    type: 'disposed',
+    color: 'red',
+    icon: (
+      <svg viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+      </svg>
+    ),
+    text: <><strong>Cisco Catalyst 2960 Switch</strong> retired &amp; marked for E-waste disposal</>,
+    time: 'Yesterday',
+    actor: 'Sarah Connor',
+  },
 ];
 
-const LIFECYCLE_SEGMENTS = [
-  { label: 'In Stock',  pct: 27.5, color: '#6b7280' },
-  { label: 'Assigned',  pct: 52.0, color: '#2563eb' },
-  { label: 'In Use',    pct: 9.0,  color: '#16a34a' },
-  { label: 'In Repair', pct: 3.1,  color: '#d97706' },
-  { label: 'Returned',  pct: 5.8,  color: '#7c3aed' },
-  { label: 'Disposed',  pct: 2.6,  color: '#dc2626' },
-];
-
-const OVERVIEW_ITEMS = [
-  { label: 'Laptops',      count: 287, color: '#2563eb' },
-  { label: 'Desktops',     count: 198, color: '#7c3aed' },
-  { label: 'Monitors',     count: 310, color: '#0284c7' },
-  { label: 'Printers',     count:  62, color: '#16a34a' },
-  { label: 'Smartphones',  count: 145, color: '#d97706' },
-  { label: 'Servers',      count:  24, color: '#dc2626' },
-  { label: 'Routers',      count:  48, color: '#6b7280' },
-  { label: 'Other',        count: 174, color: '#9ca3af' },
-];
-
-function StatusBadge({ status }) {
-  const map = {
-    'In Stock':  { cls: 'badge-gray',  dot: 'gray'  },
-    'Assigned':  { cls: 'badge-blue',  dot: 'blue'  },
-    'In Use':    { cls: 'badge-green', dot: 'green' },
-    'In Repair': { cls: 'badge-amber', dot: 'amber' },
-    'Returned':  { cls: 'badge-neutral', dot: 'gray' },
-    'Disposed':  { cls: 'badge-red',   dot: 'red'   },
-  };
-  const { cls, dot } = map[status] ?? { cls: 'badge-gray', dot: 'gray' };
-  return (
-    <span className={`badge ${cls}`}>
-      <span className={`badge-dot ${dot}`} />
-      {status}
-    </span>
-  );
-}
-
-function AssetTypeIcon({ type }) {
-  const icons = {
-    Laptop: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+/* ============================================================
+   4. Asset Categories (Specific 6 requested categories)
+   ============================================================ */
+const CATEGORIES = [
+  {
+    name: 'Laptop',
+    count: 480,
+    pct: 37.5,
+    color: '#2563eb',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="3" width="20" height="14" rx="2" />
         <path d="M8 21h8M12 17v4" />
       </svg>
     ),
-    Desktop: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  },
+  {
+    name: 'Desktop',
+    count: 220,
+    pct: 17.2,
+    color: '#3b82f6',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="3" width="20" height="14" rx="2" />
-        <path d="M8 21h8M12 17v4" />
+        <line x1="12" y1="17" x2="12" y2="21" />
+        <line x1="8" y1="21" x2="16" y2="21" />
       </svg>
     ),
-    Monitor: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="3" width="20" height="14" rx="2" />
-        <path d="M8 21h8M12 17v4" />
+  },
+  {
+    name: 'Monitor',
+    count: 290,
+    pct: 22.7,
+    color: '#0284c7',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="12" rx="1" />
+        <line x1="8" y1="20" x2="16" y2="20" />
+        <line x1="12" y1="16" x2="12" y2="20" />
       </svg>
     ),
-    Printer: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+  },
+  {
+    name: 'Printer',
+    count: 65,
+    pct: 5.1,
+    color: '#16a34a',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="6 9 6 2 18 2 18 9" />
         <path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
         <rect x="6" y="14" width="12" height="8" />
       </svg>
     ),
-    Smartphone: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="5" y="2" width="14" height="20" rx="2" />
-        <path d="M12 18h.01" />
+  },
+  {
+    name: 'Network',
+    count: 85,
+    pct: 6.6,
+    color: '#d97706',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="14" width="20" height="8" rx="2" />
+        <line x1="6" y1="6" x2="6" y2="14" />
+        <line x1="12" y1="6" x2="12" y2="14" />
+        <line x1="18" y1="6" x2="18" y2="14" />
       </svg>
     ),
-    Router: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="1" y="9" width="22" height="9" rx="2" />
-        <path d="M8 9V5M16 9V5M12 9V3M12 18v3" />
+  },
+  {
+    name: 'Peripheral',
+    count: 140,
+    pct: 10.9,
+    color: '#64748b',
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="10" rx="2" />
+        <circle cx="12" cy="5" r="2" />
+        <path d="M12 7v4" />
       </svg>
     ),
-  };
-  return icons[type] ?? icons.Laptop;
+  },
+];
+
+/* Helper to render SVG Donut segments */
+function DonutChart({ segments, totalCount }) {
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius; // ~339.29
+
+  // Pre-calculate cumulative offsets purely
+  const segmentsWithOffsets = segments.map((seg, idx) => {
+    const priorPct = segments.slice(0, idx).reduce((sum, s) => sum + s.pct, 0);
+    const strokeDashoffset = -((priorPct / 100) * circumference);
+    const strokeDasharray = `${(seg.pct / 100) * circumference} ${circumference}`;
+    return { ...seg, strokeDashoffset, strokeDasharray };
+  });
+
+  return (
+    <div className="donut-svg-container">
+      <svg viewBox="0 0 140 140">
+        <circle
+          cx="70"
+          cy="70"
+          r={radius}
+          fill="none"
+          stroke="#f1f5f9"
+          strokeWidth="16"
+        />
+        {segmentsWithOffsets.map((seg) => (
+          <circle
+            key={seg.label}
+            cx="70"
+            cy="70"
+            r={radius}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth="16"
+            strokeDasharray={seg.strokeDasharray}
+            strokeDashoffset={seg.strokeDashoffset}
+            strokeLinecap="butt"
+          />
+        ))}
+      </svg>
+      <div className="donut-center-label">
+        <span className="donut-center-value">{totalCount}</span>
+        <span className="donut-center-sub">Total Assets</span>
+      </div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -158,144 +269,163 @@ export default function Dashboard() {
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">IT asset overview — as of 29 Sep 2026</p>
+          <p className="page-subtitle">IT Asset &amp; Inventory Management System — Operations Center</p>
         </div>
         <div className="page-header-actions">
-          <button className="btn btn-secondary btn-sm">
+          <button className="btn btn-secondary btn-sm" aria-label="Export asset summary">
             <svg viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+              <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
-            Refresh
+            Export Summary
           </button>
-          <button className="btn btn-primary btn-sm">
+          <button className="btn btn-primary btn-sm" aria-label="Add new asset">
             <svg viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
-            Add Asset
+            Register Asset
           </button>
         </div>
       </div>
 
-      {/* Stat cards */}
+      {/* 1. Summary Statistics Cards */}
       <div className="dashboard-stats">
-        {STATS.map((s) => (
-          <div key={s.label} className={`stat-card ${s.accent}`}>
+        {SUMMARY_STATS.map((stat) => (
+          <div key={stat.label} className={`stat-card ${stat.accent}`}>
             <div className="stat-card-header">
-              <span className="stat-card-label">{s.label}</span>
-              <div className={`stat-card-icon ${s.iconColor}`}>{s.icon}</div>
+              <span className="stat-card-label">{stat.label}</span>
+              <div className={`stat-card-icon ${stat.iconColor}`}>{stat.icon}</div>
             </div>
-            <div className="stat-card-value">{s.value}</div>
-            <div className="stat-card-meta">{s.meta}</div>
+            <div className="stat-card-value">{stat.value}</div>
+            <div className="stat-card-meta">{stat.change}</div>
           </div>
         ))}
       </div>
 
-      {/* Body: Recent Assets + Sidebar panel */}
-      <div className="dashboard-body">
-
-        {/* Left: Recent Assets */}
-        <div className="card">
-          <div className="card-header">
-            <div>
-              <div className="card-title">Recent Assets</div>
-              <div className="card-subtitle">Last 6 asset records updated</div>
-            </div>
-            <div className="card-actions">
-              <button className="btn btn-ghost btn-sm">View all</button>
-            </div>
+      {/* 2. Asset Status Overview (5 Lifecycle stages) */}
+      <div className="card" style={{ marginBottom: 'var(--space-5)' }}>
+        <div className="card-header">
+          <div>
+            <div className="card-title">Asset Status Overview</div>
+            <div className="card-subtitle">Real-time status breakdown across inventory lifecycle</div>
           </div>
-          <div className="table-wrapper recent-assets-table-wrap">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Asset</th>
-                  <th>Asset ID</th>
-                  <th>Status</th>
-                  <th>Assignee</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {RECENT_ASSETS.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <div className="asset-type-cell">
-                        <div className="asset-type-icon">
-                          <AssetTypeIcon type={row.type} />
-                        </div>
-                        <div>
-                          <div className="asset-name">{row.name}</div>
-                          <div className="asset-tag">{row.type}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="col-mono col-nowrap">{row.id}</td>
-                    <td><StatusBadge status={row.status} /></td>
-                    <td className="col-nowrap">{row.assignee}</td>
-                    <td className="col-nowrap" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)' }}>{row.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <span className="badge badge-neutral" style={{ fontSize: 'var(--text-xs)' }}>5 Status States</span>
+        </div>
+
+        {/* Visual Progress Bar (Lifecycle Ribbon) */}
+        <div className="lifecycle-bar-wrapper">
+          <div className="lifecycle-bar" role="img" aria-label="Asset status lifecycle distribution">
+            {STATUS_OVERVIEW.map((item) => (
+              <div
+                key={item.label}
+                className="lifecycle-segment"
+                style={{ width: `${item.pct}%`, backgroundColor: item.color }}
+                title={`${item.label}: ${item.count} (${item.pct}%)`}
+              />
+            ))}
           </div>
         </div>
 
-        {/* Right: Overview + Activity */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}>
+        {/* 5 Status Indicator Tiles */}
+        <div className="dashboard-status-row" style={{ padding: '0 var(--space-5) var(--space-5)' }}>
+          {STATUS_OVERVIEW.map((item) => (
+            <div key={item.label} className="status-tile">
+              <span className="status-tile-label">{item.label}</span>
+              <span className="status-tile-value">{item.count.toLocaleString()}</span>
+              <span className="status-tile-pct">{item.pct}% of total</span>
+              <div className="status-tile-bar" style={{ backgroundColor: item.color }} />
+            </div>
+          ))}
+        </div>
+      </div>
 
-          {/* Asset Lifecycle bar */}
+      {/* Main Two-Column Section */}
+      <div className="dashboard-body">
+        {/* Left Column: Recent Activity & Visual Overview */}
+        <div className="dashboard-left">
+          
+          {/* 3. Recent Activity Section */}
           <div className="card">
             <div className="card-header">
-              <div className="card-title">Asset Lifecycle</div>
-            </div>
-            <div className="lifecycle-bar-wrapper">
-              <div className="lifecycle-bar-label">Distribution by status</div>
-              <div className="lifecycle-bar" role="img" aria-label="Asset lifecycle distribution bar">
-                {LIFECYCLE_SEGMENTS.map((seg) => (
-                  <div
-                    key={seg.label}
-                    className="lifecycle-segment"
-                    style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
-                    title={`${seg.label}: ${seg.pct}%`}
-                  />
-                ))}
+              <div>
+                <div className="card-title">Recent Activity</div>
+                <div className="card-subtitle">Latest operations, checkouts, returns, and maintenance events</div>
               </div>
-              <div className="lifecycle-legend">
-                {LIFECYCLE_SEGMENTS.map((seg) => (
-                  <span key={seg.label} className="lifecycle-legend-item">
-                    <span className="lifecycle-legend-dot" style={{ backgroundColor: seg.color }} />
-                    {seg.label} ({seg.pct}%)
-                  </span>
-                ))}
-              </div>
+              <button className="btn btn-ghost btn-sm">Audit Log</button>
             </div>
-            <div className="overview-list">
-              {OVERVIEW_ITEMS.map((item) => (
-                <div key={item.label} className="overview-item">
-                  <div className="overview-item-left">
-                    <span className="overview-item-dot" style={{ backgroundColor: item.color }} />
-                    <span className="overview-item-label">{item.label}</span>
+            <div className="activity-feed">
+              {RECENT_ACTIVITIES.map((activity, idx) => (
+                <div key={idx} className="activity-item">
+                  <div className={`activity-icon ${activity.color}`}>
+                    {activity.icon}
                   </div>
-                  <span className="overview-item-count">{item.count.toLocaleString()}</span>
+                  <div className="activity-content">
+                    <div className="activity-text">{activity.text}</div>
+                    <div className="activity-meta">
+                      <span>{activity.time}</span>
+                      <span className="activity-meta-dot" />
+                      <span>{activity.actor}</span>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Activity Feed */}
+        {/* Right Rail: 4. Asset Categories & 5. Simple Visual Overview (Chart) */}
+        <div className="dashboard-right">
+          
+          {/* Visual Overview: Status Distribution Donut Chart */}
           <div className="card">
             <div className="card-header">
-              <div className="card-title">Recent Activity</div>
-              <button className="btn btn-ghost btn-sm">View log</button>
+              <div>
+                <div className="card-title">Inventory Allocation</div>
+                <div className="card-subtitle">Proportional asset status</div>
+              </div>
             </div>
-            <div className="activity-feed">
-              {ACTIVITY_FEED.map((item, idx) => (
-                <div key={idx} className="activity-item">
-                  <span className={`activity-dot ${item.color}`} />
-                  <div className="activity-content">
-                    <div className="activity-text">{item.text}</div>
-                    <div className="activity-meta">{item.meta}</div>
+            <div className="donut-chart-wrapper">
+              <DonutChart segments={STATUS_OVERVIEW} totalCount="1,280" />
+              <div className="donut-legend">
+                {STATUS_OVERVIEW.map((item) => (
+                  <div key={item.label} className="donut-legend-item">
+                    <span className="donut-legend-dot" style={{ backgroundColor: item.color }} />
+                    <div className="donut-legend-info">
+                      <div className="donut-legend-label">{item.label}</div>
+                      <div className="donut-legend-val">{item.count}</div>
+                    </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Asset Categories Breakdown */}
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <div className="card-title">Asset Categories</div>
+                <div className="card-subtitle">Hardware breakdown (6 categories)</div>
+              </div>
+            </div>
+            <div className="category-list">
+              {CATEGORIES.map((cat) => (
+                <div key={cat.name} className="category-item">
+                  <div className="category-icon-wrap">
+                    {cat.icon}
+                  </div>
+                  <div className="category-info">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span className="category-label">{cat.name}</span>
+                      <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>{cat.pct}%</span>
+                    </div>
+                    <div className="category-bar-track">
+                      <div
+                        className="category-bar-fill"
+                        style={{ width: `${cat.pct}%`, backgroundColor: cat.color }}
+                      />
+                    </div>
+                  </div>
+                  <span className="category-count">{cat.count}</span>
                 </div>
               ))}
             </div>
