@@ -2,25 +2,46 @@ import { useState, useMemo } from 'react';
 import { MOCK_ASSETS, ASSET_CATEGORIES, ASSET_STATUSES } from '../data/mockAssets';
 import AssetTable from '../components/AssetTable';
 import AssetDetailModal from '../components/AssetDetailModal';
+import AssetFormModal from '../components/AssetFormModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 
 export default function Assets() {
+  // Local state for Assets (in-memory CRUD)
+  const [assets, setAssets] = useState(MOCK_ASSETS);
+
+  // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
-  const [activeAsset, setActiveAsset] = useState(null);
 
-  // Compute status counts for quick tabs
+  // Modal states
+  const [viewingAsset, setViewingAsset] = useState(null);
+  const [editingAsset, setEditingAsset] = useState(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [assetToDelete, setAssetToDelete] = useState(null);
+
+  // User feedback notice
+  const [feedbackNotice, setFeedbackNotice] = useState(null);
+
+  const showNotification = (message) => {
+    setFeedbackNotice(message);
+    setTimeout(() => {
+      setFeedbackNotice(null);
+    }, 4000);
+  };
+
+  // Compute status counts for quick tabs based on current state
   const statusCounts = useMemo(() => {
-    const counts = { ALL: MOCK_ASSETS.length };
+    const counts = { ALL: assets.length };
     ASSET_STATUSES.forEach((st) => {
-      counts[st] = MOCK_ASSETS.filter((a) => a.status === st).length;
+      counts[st] = assets.filter((a) => a.status === st).length;
     });
     return counts;
-  }, []);
+  }, [assets]);
 
   // Filtered dataset matching search and filter parameters
   const filteredAssets = useMemo(() => {
-    return MOCK_ASSETS.filter((asset) => {
+    return assets.filter((asset) => {
       // 1. Filter by category
       if (selectedCategory !== 'ALL' && asset.category !== selectedCategory) {
         return false;
@@ -44,12 +65,12 @@ export default function Assets() {
 
       return true;
     });
-  }, [searchQuery, selectedCategory, selectedStatus]);
+  }, [assets, searchQuery, selectedCategory, selectedStatus]);
 
-  // Metric stats for summary strip
+  // Financial metric
   const totalValue = useMemo(() => {
-    return MOCK_ASSETS.reduce((acc, curr) => acc + (curr.purchasePrice || 0), 0);
-  }, []);
+    return assets.reduce((acc, curr) => acc + (curr.purchasePrice || 0), 0);
+  }, [assets]);
 
   const formatCurrency = (val) => {
     return new Intl.NumberFormat('en-US', {
@@ -67,6 +88,47 @@ export default function Assets() {
 
   const hasActiveFilters = searchQuery !== '' || selectedCategory !== 'ALL' || selectedStatus !== 'ALL';
 
+  // ---- CRUD Handlers ----
+  const handleOpenCreate = () => {
+    setEditingAsset(null);
+    setIsFormOpen(true);
+  };
+
+  const handleOpenEdit = (asset) => {
+    setEditingAsset(asset);
+    setIsFormOpen(true);
+  };
+
+  const handleSaveAsset = (assetData) => {
+    const exists = assets.some((a) => a.id === assetData.id);
+
+    if (exists) {
+      // UPDATE
+      setAssets((prev) => prev.map((a) => (a.id === assetData.id ? assetData : a)));
+      showNotification(`Asset ${assetData.assetCode} successfully updated.`);
+    } else {
+      // CREATE
+      setAssets((prev) => [assetData, ...prev]);
+      showNotification(`Asset ${assetData.assetCode} successfully created and registered.`);
+    }
+
+    setIsFormOpen(false);
+    setEditingAsset(null);
+  };
+
+  const handleDeletePrompt = (asset) => {
+    setAssetToDelete(asset);
+  };
+
+  const handleConfirmDelete = (assetId) => {
+    const target = assets.find((a) => a.id === assetId);
+    setAssets((prev) => prev.filter((a) => a.id !== assetId));
+    setAssetToDelete(null);
+    if (target) {
+      showNotification(`Asset ${target.assetCode} (${target.assetName}) deleted.`);
+    }
+  };
+
   return (
     <div>
       {/* Page Header */}
@@ -82,7 +144,7 @@ export default function Assets() {
             </svg>
             Export List
           </button>
-          <button type="button" className="btn btn-primary btn-sm" aria-label="Add new asset">
+          <button type="button" className="btn btn-primary btn-sm" onClick={handleOpenCreate} aria-label="Register new asset">
             <svg viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
@@ -90,6 +152,24 @@ export default function Assets() {
           </button>
         </div>
       </div>
+
+      {/* Optional feedback banner */}
+      {feedbackNotice && (
+        <div
+          className="placeholder-notice"
+          style={{
+            backgroundColor: 'var(--color-status-success-bg)',
+            borderColor: '#bbf7d0',
+            color: 'var(--color-status-success)',
+            marginBottom: 'var(--space-4)',
+          }}
+        >
+          <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          {feedbackNotice}
+        </div>
+      )}
 
       {/* KPI Overview Strip */}
       <div className="section-grid section-grid-4" style={{ marginBottom: 'var(--space-5)' }}>
@@ -102,7 +182,7 @@ export default function Assets() {
               </svg>
             </div>
           </div>
-          <div className="stat-card-value">{MOCK_ASSETS.length}</div>
+          <div className="stat-card-value">{assets.length}</div>
           <div className="stat-card-meta">Recorded units across departments</div>
         </div>
 
@@ -245,14 +325,16 @@ export default function Assets() {
           </div>
 
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-            Showing <strong>{filteredAssets.length}</strong> of {MOCK_ASSETS.length} assets
+            Showing <strong>{filteredAssets.length}</strong> of {assets.length} assets
           </div>
         </div>
 
-        {/* 8-Column Asset Table */}
+        {/* 8-Column Asset Table with View, Edit, Delete */}
         <AssetTable
           assets={filteredAssets}
-          onSelectAsset={(asset) => setActiveAsset(asset)}
+          onViewAsset={(asset) => setViewingAsset(asset)}
+          onEditAsset={handleOpenEdit}
+          onDeleteAsset={handleDeletePrompt}
         />
 
         {/* Card Footer / Pagination Information */}
@@ -271,11 +353,31 @@ export default function Assets() {
         </div>
       </div>
 
-      {/* Asset Inspection Detail Modal */}
-      {activeAsset && (
+      {/* READ: Asset Inspection Detail Modal */}
+      {viewingAsset && (
         <AssetDetailModal
-          asset={activeAsset}
-          onClose={() => setActiveAsset(null)}
+          asset={viewingAsset}
+          onClose={() => setViewingAsset(null)}
+        />
+      )}
+
+      {/* CREATE & UPDATE: Asset Form Modal */}
+      <AssetFormModal
+        isOpen={isFormOpen}
+        initialData={editingAsset}
+        onSave={handleSaveAsset}
+        onClose={() => {
+          setIsFormOpen(false);
+          setEditingAsset(null);
+        }}
+      />
+
+      {/* DELETE: Confirmation Modal */}
+      {assetToDelete && (
+        <DeleteConfirmModal
+          asset={assetToDelete}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setAssetToDelete(null)}
         />
       )}
     </div>

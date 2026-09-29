@@ -4,7 +4,7 @@ import AssetCategoryIcon from './AssetCategoryIcon';
 /**
  * Reusable AssetTable Component
  * 
- * Required Columns:
+ * Columns:
  * 1. Asset ID
  * 2. Asset Name
  * 3. Category
@@ -12,9 +12,9 @@ import AssetCategoryIcon from './AssetCategoryIcon';
  * 5. Location
  * 6. Status
  * 7. Assigned To
- * 8. Actions
+ * 8. Actions (View, Edit, Delete)
  */
-export default function AssetTable({ assets, onSelectAsset }) {
+export default function AssetTable({ assets, onViewAsset, onEditAsset, onDeleteAsset }) {
   if (!assets || assets.length === 0) {
     return (
       <div className="empty-state">
@@ -41,7 +41,7 @@ export default function AssetTable({ assets, onSelectAsset }) {
             <th>Location</th>
             <th style={{ width: '120px' }}>Status</th>
             <th>Assigned To</th>
-            <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
+            <th style={{ width: '170px', textAlign: 'center' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -79,7 +79,7 @@ export default function AssetTable({ assets, onSelectAsset }) {
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        maxWidth: '260px',
+                        maxWidth: '240px',
                       }}
                     >
                       {asset.assetName}
@@ -156,17 +156,40 @@ export default function AssetTable({ assets, onSelectAsset }) {
                 )}
               </td>
 
-              {/* 8. Actions */}
+              {/* 8. Actions (View, Edit, Delete) */}
               <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={() => onSelectAsset && onSelectAsset(asset)}
-                  aria-label={`View details for ${asset.assetCode}`}
-                  style={{ padding: '3px 10px', fontSize: 'var(--text-xs)' }}
-                >
-                  View
-                </button>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => onViewAsset && onViewAsset(asset)}
+                    title={`View details for ${asset.assetCode}`}
+                    aria-label={`View ${asset.assetCode}`}
+                    style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }}
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => onEditAsset && onEditAsset(asset)}
+                    title={`Edit ${asset.assetCode}`}
+                    aria-label={`Edit ${asset.assetCode}`}
+                    style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => onDeleteAsset && onDeleteAsset(asset)}
+                    title={`Delete ${asset.assetCode}`}
+                    aria-label={`Delete ${asset.assetCode}`}
+                    style={{ padding: '2px 8px', fontSize: 'var(--text-xs)', color: 'var(--color-status-danger)' }}
+                  >
+                    Delete
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
