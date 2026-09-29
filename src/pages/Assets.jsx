@@ -18,38 +18,35 @@ export default function Assets() {
     return counts;
   }, []);
 
-  // Filtered dataset based on search query, category, and status tab
+  // Filtered dataset matching search and filter parameters
   const filteredAssets = useMemo(() => {
     return MOCK_ASSETS.filter((asset) => {
-      // Category filter
+      // 1. Filter by category
       if (selectedCategory !== 'ALL' && asset.category !== selectedCategory) {
         return false;
       }
 
-      // Status filter
+      // 2. Filter by status
       if (selectedStatus !== 'ALL' && asset.status !== selectedStatus) {
         return false;
       }
 
-      // Text search
+      // 3. Search by asset name, asset code, serial number, or brand
       if (searchQuery.trim() !== '') {
-        const query = searchQuery.toLowerCase();
+        const query = searchQuery.trim().toLowerCase();
         const codeMatch = asset.assetCode.toLowerCase().includes(query);
         const nameMatch = asset.assetName.toLowerCase().includes(query);
         const brandMatch = asset.brand.toLowerCase().includes(query);
-        const modelMatch = asset.model.toLowerCase().includes(query);
         const serialMatch = asset.serialNumber.toLowerCase().includes(query);
-        const assigneeMatch = asset.assignedTo?.name.toLowerCase().includes(query);
-        const locationMatch = asset.location.toLowerCase().includes(query);
 
-        return codeMatch || nameMatch || brandMatch || modelMatch || serialMatch || assigneeMatch || locationMatch;
+        return codeMatch || nameMatch || brandMatch || serialMatch;
       }
 
       return true;
     });
   }, [searchQuery, selectedCategory, selectedStatus]);
 
-  // Metric stats
+  // Metric stats for summary strip
   const totalValue = useMemo(() => {
     return MOCK_ASSETS.reduce((acc, curr) => acc + (curr.purchasePrice || 0), 0);
   }, []);
@@ -62,13 +59,21 @@ export default function Assets() {
     }).format(val);
   };
 
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('ALL');
+    setSelectedStatus('ALL');
+  };
+
+  const hasActiveFilters = searchQuery !== '' || selectedCategory !== 'ALL' || selectedStatus !== 'ALL';
+
   return (
     <div>
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
-          <h1 className="page-title">IT Assets Inventory</h1>
-          <p className="page-subtitle">Central repository of all organizational hardware and computing equipment</p>
+          <h1 className="page-title">Assets Management</h1>
+          <p className="page-subtitle">Central inventory of organizational IT hardware, equipment, and peripherals</p>
         </div>
         <div className="page-header-actions">
           <button type="button" className="btn btn-secondary btn-sm" aria-label="Export asset catalog">
@@ -86,11 +91,11 @@ export default function Assets() {
         </div>
       </div>
 
-      {/* Summary KPI Strip */}
+      {/* KPI Overview Strip */}
       <div className="section-grid section-grid-4" style={{ marginBottom: 'var(--space-5)' }}>
         <div className="stat-card accent-blue">
           <div className="stat-card-header">
-            <span className="stat-card-label">Catalog Total</span>
+            <span className="stat-card-label">Total Assets</span>
             <div className="stat-card-icon blue">
               <svg viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
@@ -98,7 +103,7 @@ export default function Assets() {
             </div>
           </div>
           <div className="stat-card-value">{MOCK_ASSETS.length}</div>
-          <div className="stat-card-meta">Recorded assets in system</div>
+          <div className="stat-card-meta">Recorded units across departments</div>
         </div>
 
         <div className="stat-card accent-green">
@@ -111,7 +116,7 @@ export default function Assets() {
             </div>
           </div>
           <div className="stat-card-value">{statusCounts['In Stock'] || 0}</div>
-          <div className="stat-card-meta">Ready for immediate assignment</div>
+          <div className="stat-card-meta">Available for employee deployment</div>
         </div>
 
         <div className="stat-card accent-blue">
@@ -126,12 +131,12 @@ export default function Assets() {
           <div className="stat-card-value">
             {(statusCounts['In Use'] || 0) + (statusCounts['Assigned'] || 0)}
           </div>
-          <div className="stat-card-meta">Deployed to personnel &amp; offices</div>
+          <div className="stat-card-meta">Currently in active rotation</div>
         </div>
 
         <div className="stat-card accent-amber">
           <div className="stat-card-header">
-            <span className="stat-card-label">Total Inventory Value</span>
+            <span className="stat-card-label">Total Asset Value</span>
             <div className="stat-card-icon amber">
               <svg viewBox="0 0 20 20" fill="currentColor">
                 <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
@@ -140,11 +145,11 @@ export default function Assets() {
             </div>
           </div>
           <div className="stat-card-value">{formatCurrency(totalValue)}</div>
-          <div className="stat-card-meta">Combined asset acquisition cost</div>
+          <div className="stat-card-meta">Combined acquisition investment</div>
         </div>
       </div>
 
-      {/* Main Asset Management Card */}
+      {/* Main Asset Table Card */}
       <div className="card">
         {/* Quick Lifecycle Status Tabs */}
         <div className="quick-filter-tabs">
@@ -153,7 +158,7 @@ export default function Assets() {
             className={`quick-tab-btn ${selectedStatus === 'ALL' ? 'active' : ''}`}
             onClick={() => setSelectedStatus('ALL')}
           >
-            All Assets
+            All Statuses
             <span className="quick-tab-count">{statusCounts.ALL}</span>
           </button>
           {ASSET_STATUSES.map((status) => (
@@ -172,23 +177,23 @@ export default function Assets() {
         {/* Filter & Search Bar */}
         <div className="asset-filter-bar">
           <div className="asset-filter-group">
-            {/* Search Input */}
+            {/* Search Input: asset name, asset code, serial number, brand */}
             <div className="search-input-wrapper">
               <svg viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
               </svg>
               <input
                 type="text"
-                placeholder="Search code, name, serial, user..."
+                placeholder="Search name, code, serial, brand..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search assets"
+                aria-label="Search by asset name, asset code, serial number, or brand"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  style={{ color: 'var(--color-text-muted)', fontSize: 12 }}
+                  style={{ color: 'var(--color-text-muted)', fontSize: 12, cursor: 'pointer' }}
                   aria-label="Clear search"
                 >
                   ✕
@@ -196,7 +201,7 @@ export default function Assets() {
               )}
             </div>
 
-            {/* Category Dropdown Filter */}
+            {/* Filter by Category */}
             <select
               className="select-control"
               value={selectedCategory}
@@ -210,6 +215,33 @@ export default function Assets() {
                 </option>
               ))}
             </select>
+
+            {/* Filter by Status Dropdown */}
+            <select
+              className="select-control"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              aria-label="Filter by status"
+            >
+              <option value="ALL">All Statuses</option>
+              {ASSET_STATUSES.map((st) => (
+                <option key={st} value={st}>
+                  {st}
+                </option>
+              ))}
+            </select>
+
+            {/* Reset Filters Button */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={handleResetFilters}
+                style={{ color: 'var(--color-status-danger)', fontSize: 'var(--text-xs)' }}
+              >
+                Reset Filters
+              </button>
+            )}
           </div>
 
           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
@@ -217,16 +249,16 @@ export default function Assets() {
           </div>
         </div>
 
-        {/* Asset Table */}
+        {/* 8-Column Asset Table */}
         <AssetTable
           assets={filteredAssets}
           onSelectAsset={(asset) => setActiveAsset(asset)}
         />
 
-        {/* Card Footer / Pagination Stub */}
+        {/* Card Footer / Pagination Information */}
         <div className="card-footer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)' }}>
           <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-            Showing 1 to {filteredAssets.length} of {filteredAssets.length} items
+            Showing {filteredAssets.length > 0 ? 1 : 0} to {filteredAssets.length} of {filteredAssets.length} filtered items
           </span>
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <button type="button" className="btn btn-secondary btn-sm" disabled>
@@ -239,7 +271,7 @@ export default function Assets() {
         </div>
       </div>
 
-      {/* Asset Detail Dialog */}
+      {/* Asset Inspection Detail Modal */}
       {activeAsset && (
         <AssetDetailModal
           asset={activeAsset}

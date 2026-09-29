@@ -3,7 +3,16 @@ import AssetCategoryIcon from './AssetCategoryIcon';
 
 /**
  * Reusable AssetTable Component
- * Renders an enterprise IT asset table with standardized formatting.
+ * 
+ * Required Columns:
+ * 1. Asset ID
+ * 2. Asset Name
+ * 3. Category
+ * 4. Brand
+ * 5. Location
+ * 6. Status
+ * 7. Assigned To
+ * 8. Actions
  */
 export default function AssetTable({ assets, onSelectAsset }) {
   if (!assets || assets.length === 0) {
@@ -14,41 +23,36 @@ export default function AssetTable({ assets, onSelectAsset }) {
         </svg>
         <div className="empty-state-title">No assets found</div>
         <div className="empty-state-desc">
-          No IT assets matched your current search filters.
+          No hardware items matched your current search filters or category criteria.
         </div>
       </div>
     );
   }
-
-  const formatCurrency = (val) => {
-    if (typeof val !== 'number') return '—';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(val);
-  };
 
   return (
     <div className="table-wrapper">
       <table className="data-table">
         <thead>
           <tr>
-            <th>Asset Code &amp; Title</th>
-            <th>Category</th>
-            <th>Brand / Model</th>
-            <th>Serial No.</th>
-            <th>Status</th>
-            <th>Assigned To</th>
+            <th style={{ width: '130px' }}>Asset ID</th>
+            <th>Asset Name</th>
+            <th style={{ width: '110px' }}>Category</th>
+            <th style={{ width: '110px' }}>Brand</th>
             <th>Location</th>
-            <th style={{ textAlign: 'right' }}>Cost</th>
-            <th style={{ textAlign: 'center' }}>Actions</th>
+            <th style={{ width: '120px' }}>Status</th>
+            <th>Assigned To</th>
+            <th style={{ width: '80px', textAlign: 'center' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {assets.map((asset) => (
             <tr key={asset.id}>
-              {/* Asset Code & Title */}
+              {/* 1. Asset ID */}
+              <td className="col-nowrap">
+                <span className="asset-code-badge">{asset.assetCode}</span>
+              </td>
+
+              {/* 2. Asset Name */}
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                   <div
@@ -65,51 +69,80 @@ export default function AssetTable({ assets, onSelectAsset }) {
                       color: 'var(--color-text-secondary)',
                     }}
                   >
-                    <AssetCategoryIcon category={asset.category} size={15} />
+                    <AssetCategoryIcon category={asset.category} size={16} />
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--color-text-primary)' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 'var(--font-semibold)',
+                        color: 'var(--color-text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        maxWidth: '260px',
+                      }}
+                    >
                       {asset.assetName}
                     </div>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: '2px' }}>
-                      <span className="asset-code-badge">{asset.assetCode}</span>
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      SN: {asset.serialNumber}
                     </div>
                   </div>
                 </div>
               </td>
 
-              {/* Category */}
+              {/* 3. Category */}
               <td className="col-nowrap">
-                <span style={{ fontSize: 'var(--text-xs)', fontWeight: 'var(--font-medium)', color: 'var(--color-text-secondary)' }}>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    padding: '2px 8px',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 'var(--font-medium)',
+                    backgroundColor: 'var(--color-surface-alt)',
+                    border: '1px solid var(--color-border-light)',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
                   {asset.category}
                 </span>
               </td>
 
-              {/* Brand / Model */}
-              <td>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)' }}>
+              {/* 4. Brand */}
+              <td className="col-nowrap">
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', color: 'var(--color-text-primary)' }}>
                   {asset.brand}
-                </div>
-                <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {asset.model}
+                </span>
+              </td>
+
+              {/* 5. Location */}
+              <td>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <svg
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    style={{ width: 13, height: 13, color: 'var(--color-text-muted)', flexShrink: 0 }}
+                  >
+                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                  </svg>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+                    {asset.location}
+                  </span>
                 </div>
               </td>
 
-              {/* Serial Number */}
-              <td className="col-mono col-nowrap" style={{ color: 'var(--color-text-secondary)' }}>
-                {asset.serialNumber}
-              </td>
-
-              {/* Status */}
+              {/* 6. Status */}
               <td className="col-nowrap">
                 <AssetStatusBadge status={asset.status} />
               </td>
 
-              {/* Assigned To */}
+              {/* 7. Assigned To */}
               <td>
                 {asset.assignedTo ? (
                   <div>
-                    <div style={{ fontWeight: 'var(--font-medium)', color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 'var(--text-sm)', fontWeight: 'var(--font-medium)', color: 'var(--color-text-primary)', whiteSpace: 'nowrap' }}>
                       {asset.assignedTo.name}
                     </div>
                     <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
@@ -117,27 +150,20 @@ export default function AssetTable({ assets, onSelectAsset }) {
                     </div>
                   </div>
                 ) : (
-                  <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                    Unassigned
+                  </span>
                 )}
               </td>
 
-              {/* Location */}
-              <td className="col-nowrap" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
-                {asset.location}
-              </td>
-
-              {/* Purchase Cost */}
-              <td className="col-mono col-nowrap" style={{ textAlign: 'right', fontWeight: 'var(--font-medium)' }}>
-                {formatCurrency(asset.purchasePrice)}
-              </td>
-
-              {/* Actions */}
+              {/* 8. Actions */}
               <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                 <button
                   type="button"
-                  className="btn btn-ghost btn-sm"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => onSelectAsset && onSelectAsset(asset)}
                   aria-label={`View details for ${asset.assetCode}`}
+                  style={{ padding: '3px 10px', fontSize: 'var(--text-xs)' }}
                 >
                   View
                 </button>
