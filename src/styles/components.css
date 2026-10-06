@@ -684,6 +684,12 @@
   box-shadow: 0 0 0 3px var(--color-accent-muted);
 }
 
+.form-textarea {
+  min-height: 84px;
+  resize: vertical;
+  line-height: var(--leading-normal);
+}
+
 .form-input.has-error {
   border-color: var(--color-status-danger);
   background-color: var(--color-status-danger-bg);

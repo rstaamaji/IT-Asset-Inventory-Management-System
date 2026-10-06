@@ -17,8 +17,10 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
     'aria-hidden': true,
   };
 
-  switch (category) {
-    case 'Laptop':
+  const normalized = (category || '').toLowerCase();
+
+  switch (normalized) {
+    case 'laptop':
       return (
         <svg {...iconProps}>
           <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -26,7 +28,7 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Desktop':
+    case 'desktop':
       return (
         <svg {...iconProps}>
           <rect x="2" y="3" width="20" height="14" rx="2" />
@@ -35,7 +37,7 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Monitor':
+    case 'monitor':
       return (
         <svg {...iconProps}>
           <rect x="3" y="4" width="18" height="12" rx="1" />
@@ -44,7 +46,7 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Printer':
+    case 'printer':
       return (
         <svg {...iconProps}>
           <polyline points="6 9 6 2 18 2 18 9" />
@@ -53,7 +55,9 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Smartphone':
+    case 'smartphone':
+    case 'mobile device':
+    case 'mobile':
       return (
         <svg {...iconProps}>
           <rect x="5" y="2" width="14" height="20" rx="2" />
@@ -61,7 +65,7 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Server':
+    case 'server':
       return (
         <svg {...iconProps}>
           <rect x="2" y="2" width="20" height="8" rx="2" />
@@ -71,17 +75,22 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Router':
+    case 'router':
+    case 'network equipment':
+    case 'network':
       return (
         <svg {...iconProps}>
           <rect x="2" y="14" width="20" height="8" rx="2" />
-          <line x1="6" y1="6" x2="6" y2="14" />
-          <line x1="12" y1="6" x2="12" y2="14" />
-          <line x1="18" y1="6" x2="18" y2="14" />
+          <line x1="6" y1="6" x2="6.01" y2="6" />
+          <line x1="12" y1="6" x2="12.01" y2="6" />
+          <line x1="18" y1="6" x2="18.01" y2="6" />
+          <line x1="6" y1="9" x2="6" y2="14" />
+          <line x1="12" y1="9" x2="12" y2="14" />
+          <line x1="18" y1="9" x2="18" y2="14" />
         </svg>
       );
 
-    case 'Keyboard':
+    case 'keyboard':
       return (
         <svg {...iconProps}>
           <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -93,7 +102,7 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Mouse':
+    case 'mouse':
       return (
         <svg {...iconProps}>
           <rect x="6" y="3" width="12" height="18" rx="6" />
@@ -101,7 +110,16 @@ export default function AssetCategoryIcon({ category, size = 15, className = '' 
         </svg>
       );
 
-    case 'Other':
+    case 'peripheral':
+      return (
+        <svg {...iconProps}>
+          <rect x="3" y="11" width="18" height="10" rx="2" />
+          <circle cx="12" cy="5" r="2" />
+          <path d="M12 7v4" />
+        </svg>
+      );
+
+    case 'other':
     default:
       return (
         <svg {...iconProps}>
