@@ -42,10 +42,12 @@ function getInitialFormState(initialData) {
  * Internal form content component
  * Keyed by asset ID / 'create' to initialize state purely upon mount
  */
-function AssetFormContent({ initialData, onSave, onClose }) {
+function AssetFormContent({ initialData, categories = [], onSave, onClose }) {
   const isEdit = Boolean(initialData && initialData.id);
   const [formData, setFormData] = useState(() => getInitialFormState(initialData));
   const [errors, setErrors] = useState({});
+
+  const categoryList = categories.length > 0 ? categories.map((c) => c.name || c) : ASSET_CATEGORIES;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -223,7 +225,7 @@ function AssetFormContent({ initialData, onSave, onClose }) {
                 className={`select-control ${errors.category ? 'has-error' : ''}`}
                 style={{ width: '100%' }}
               >
-                {ASSET_CATEGORIES.map((cat) => (
+                {categoryList.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat}
                   </option>
@@ -432,7 +434,7 @@ function AssetFormContent({ initialData, onSave, onClose }) {
  * Main AssetFormModal wrapper
  * Mounts AssetFormContent keyed by initialData ID to preserve purity without useEffect state mutations
  */
-export default function AssetFormModal({ isOpen, initialData, onSave, onClose }) {
+export default function AssetFormModal({ isOpen, initialData, categories = [], onSave, onClose }) {
   if (!isOpen) return null;
 
   const key = initialData?.id ? `edit-${initialData.id}` : 'create-new';
@@ -442,6 +444,7 @@ export default function AssetFormModal({ isOpen, initialData, onSave, onClose })
       <AssetFormContent
         key={key}
         initialData={initialData}
+        categories={categories}
         onSave={onSave}
         onClose={onClose}
       />

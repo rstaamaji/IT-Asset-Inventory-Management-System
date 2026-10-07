@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
 import AppLayout from './layouts/AppLayout';
 import Dashboard   from './pages/Dashboard';
 import Assets      from './pages/Assets';
@@ -11,7 +12,8 @@ import Reports     from './pages/Reports';
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <AppProvider>
+        <Routes>
         <Route path="/" element={<AppLayout />}>
           <Route index           element={<Dashboard />}   />
           <Route path="assets"      element={<Assets />}      />
@@ -24,6 +26,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
-    </BrowserRouter>
-  );
+    </AppProvider>
+  </BrowserRouter>
+);
 }

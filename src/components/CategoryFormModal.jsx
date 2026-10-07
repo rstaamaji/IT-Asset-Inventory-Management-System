@@ -36,7 +36,6 @@ function CategoryFormContent({ initialData, existingCategories, onSave, onClose 
   const validate = () => {
     const newErrors = {};
     const trimmedName = formData.name.trim();
-    const trimmedDesc = formData.description.trim();
 
     if (!trimmedName) {
       newErrors.name = 'Category name is required';
@@ -52,10 +51,6 @@ function CategoryFormContent({ initialData, existingCategories, onSave, onClose 
       if (isDuplicate) {
         newErrors.name = `Category "${trimmedName}" already exists. Please choose a unique name.`;
       }
-    }
-
-    if (!trimmedDesc) {
-      newErrors.description = 'Category description is required';
     }
 
     setErrors(newErrors);
@@ -141,7 +136,7 @@ function CategoryFormContent({ initialData, existingCategories, onSave, onClose 
 
           <div className="form-group">
             <label className="form-label" htmlFor="catDescription">
-              Description <span className="form-required">*</span>
+              Description <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', textTransform: 'none', fontWeight: 'normal' }}>(Optional)</span>
             </label>
             <textarea
               id="catDescription"

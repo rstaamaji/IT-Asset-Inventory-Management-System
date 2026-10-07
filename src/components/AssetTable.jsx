@@ -14,7 +14,7 @@ import AssetCategoryIcon from './AssetCategoryIcon';
  * 7. Assigned To
  * 8. Actions (View, Edit, Delete)
  */
-export default function AssetTable({ assets, onViewAsset, onEditAsset, onDeleteAsset }) {
+export default function AssetTable({ assets, onViewAsset, onEditAsset, onDeleteAsset, onTransitionStatus }) {
   if (!assets || assets.length === 0) {
     return (
       <div className="empty-state">
@@ -135,7 +135,17 @@ export default function AssetTable({ assets, onViewAsset, onEditAsset, onDeleteA
 
               {/* 6. Status */}
               <td className="col-nowrap">
-                <AssetStatusBadge status={asset.status} />
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    cursor: onTransitionStatus ? 'pointer' : 'default',
+                  }}
+                  onClick={() => onTransitionStatus && onTransitionStatus(asset)}
+                  title={onTransitionStatus ? 'Click to change lifecycle status' : ''}
+                >
+                  <AssetStatusBadge status={asset.status} />
+                </div>
               </td>
 
               {/* 7. Assigned To */}
