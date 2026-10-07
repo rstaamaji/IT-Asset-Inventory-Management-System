@@ -1,13 +1,11 @@
 import { useState, useMemo } from 'react';
-import { MOCK_CATEGORIES } from '../data/mockCategories';
-import { MOCK_ASSETS } from '../data/mockAssets';
+import { useApp } from '../context/AppContext';
 import AssetCategoryIcon from '../components/AssetCategoryIcon';
 import CategoryFormModal from '../components/CategoryFormModal';
 import CategoryDeleteModal from '../components/CategoryDeleteModal';
 
 export default function Categories() {
-  // Local state for categories (in-memory CRUD)
-  const [categories, setCategories] = useState(MOCK_CATEGORIES);
+  const { categories, assets, addCategory, updateCategory, deleteCategory } = useApp();
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,29 +25,22 @@ export default function Categories() {
     }, 4000);
   };
 
-  // Helper to calculate asset count for each category based on MOCK_ASSETS
-  const getAssetCountForCategory = (categoryName) => {
-    const targetName = categoryName.trim().toLowerCase();
-    return MOCK_ASSETS.filter((asset) => {
-      const assetCat = (asset.category || '').trim().toLowerCase();
-      // Direct match
-      if (assetCat === targetName) return true;
-      // Normalization aliases
-      if (targetName === 'network equipment' && (assetCat === 'router' || assetCat === 'network')) return true;
-      if (targetName === 'mobile device' && (assetCat === 'smartphone' || assetCat === 'mobile')) return true;
-      if (targetName === 'peripheral' && (assetCat === 'keyboard' || assetCat === 'mouse')) return true;
-      return false;
-    }).length;
-  };
-
   // Pre-calculate asset count map for performance & KPI metrics
   const categoryCounts = useMemo(() => {
     const counts = {};
     categories.forEach((cat) => {
-      counts[cat.id] = getAssetCountForCategory(cat.name);
+      const targetName = (cat.name || '').trim().toLowerCase();
+      counts[cat.id] = assets.filter((asset) => {
+        const assetCat = (asset.category || '').trim().toLowerCase();
+        if (assetCat === targetName) return true;
+        if (targetName === 'network equipment' && (assetCat === 'router' || assetCat === 'network')) return true;
+        if (targetName === 'mobile device' && (assetCat === 'smartphone' || assetCat === 'mobile')) return true;
+        if (targetName === 'peripheral' && (assetCat === 'keyboard' || assetCat === 'mouse')) return true;
+        return false;
+      }).length;
     });
     return counts;
-  }, [categories]);
+  }, [categories, assets]);
 
   // Filtered categories based on search input
   const filteredCategories = useMemo(() => {
@@ -117,11 +108,11 @@ export default function Categories() {
 
     if (exists) {
       // UPDATE
-      setCategories((prev) => prev.map((c) => (c.id === categoryData.id ? categoryData : c)));
+      updateCategory(categoryData);
       showNotification(`Category "${categoryData.name}" successfully updated.`);
     } else {
       // CREATE
-      setCategories((prev) => [categoryData, ...prev]);
+      addCategory(categoryData);
       showNotification(`Category "${categoryData.name}" successfully created.`);
     }
 
@@ -135,7 +126,7 @@ export default function Categories() {
 
   const handleConfirmDelete = (categoryId) => {
     const target = categories.find((c) => c.id === categoryId);
-    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+    deleteCategory(categoryId);
     setCategoryToDelete(null);
     if (target) {
       showNotification(`Category "${target.name}" has been deleted.`);

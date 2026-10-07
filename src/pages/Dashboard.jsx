@@ -1,103 +1,28 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 import '../styles/dashboard.css';
 
-/* ---- Placeholder data ---- */
-const STATS = [
-  {
-    label: 'Total Assets',
-    value: '1,248',
-    meta: 'Across all categories',
-    accent: 'accent-blue',
-    iconColor: 'blue',
-    icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Available',
-    value: '342',
-    meta: 'Ready to assign',
-    accent: 'accent-green',
-    iconColor: 'green',
-    icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Assigned',
-    value: '867',
-    meta: 'Currently in use',
-    accent: 'accent-blue',
-    iconColor: 'blue',
-    icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor">
-        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-      </svg>
-    ),
-  },
-  {
-    label: 'In Repair',
-    value: '39',
-    meta: 'Under maintenance',
-    accent: 'accent-amber',
-    iconColor: 'amber',
-    icon: (
-      <svg viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-      </svg>
-    ),
-  },
-];
-
-const RECENT_ASSETS = [
-  { id: 'AST-0042', name: 'Dell XPS 15', type: 'Laptop',    status: 'Assigned',  assignee: 'Sarah K.',   date: '29 Sep 2026' },
-  { id: 'AST-0041', name: 'HP LaserJet M404', type: 'Printer',  status: 'In Stock',  assignee: '—',          date: '28 Sep 2026' },
-  { id: 'AST-0040', name: 'Cisco RV340',  type: 'Router',   status: 'In Use',    assignee: 'IT Dept.',   date: '27 Sep 2026' },
-  { id: 'AST-0039', name: 'iPhone 15 Pro', type: 'Smartphone', status: 'In Repair', assignee: 'Mark L.',    date: '26 Sep 2026' },
-  { id: 'AST-0038', name: 'LG 27UK850',  type: 'Monitor',  status: 'Assigned',  assignee: 'Jana M.',    date: '25 Sep 2026' },
-  { id: 'AST-0037', name: 'ThinkPad X1 Carbon', type: 'Laptop', status: 'Returned', assignee: '—',         date: '24 Sep 2026' },
-];
-
-const ACTIVITY_FEED = [
-  { color: 'green', text: <><strong>Dell XPS 15</strong> assigned to <strong>Sarah K.</strong></>, meta: 'Today, 14:22 · By Admin' },
-  { color: 'amber', text: <><strong>iPhone 15 Pro</strong> sent to repair — screen damage</>, meta: 'Today, 11:07 · By Mark L.' },
-  { color: 'blue',  text: <>3 new assets added to <strong>Laptop</strong> category</>, meta: 'Yesterday, 16:43 · By Admin' },
-  { color: 'gray',  text: <><strong>ThinkPad X1 Carbon</strong> returned from assignment</>, meta: 'Yesterday, 09:15 · By Jana M.' },
-  { color: 'red',   text: <><strong>Cisco RV340</strong> maintenance due in 7 days</>, meta: 'Sep 27, 2026 · System alert' },
-  { color: 'green', text: <>Quarterly audit completed — <strong>1,248</strong> assets verified</>, meta: 'Sep 25, 2026 · By Admin' },
-];
-
-const LIFECYCLE_SEGMENTS = [
-  { label: 'In Stock',  pct: 27.5, color: '#6b7280' },
-  { label: 'Assigned',  pct: 52.0, color: '#2563eb' },
-  { label: 'In Use',    pct: 9.0,  color: '#16a34a' },
-  { label: 'In Repair', pct: 3.1,  color: '#d97706' },
-  { label: 'Returned',  pct: 5.8,  color: '#7c3aed' },
-  { label: 'Disposed',  pct: 2.6,  color: '#dc2626' },
-];
-
-const OVERVIEW_ITEMS = [
-  { label: 'Laptops',      count: 287, color: '#2563eb' },
-  { label: 'Desktops',     count: 198, color: '#7c3aed' },
-  { label: 'Monitors',     count: 310, color: '#0284c7' },
-  { label: 'Printers',     count:  62, color: '#16a34a' },
-  { label: 'Smartphones',  count: 145, color: '#d97706' },
-  { label: 'Servers',      count:  24, color: '#dc2626' },
-  { label: 'Routers',      count:  48, color: '#6b7280' },
-  { label: 'Other',        count: 174, color: '#9ca3af' },
+const CATEGORY_COLORS = [
+  '#2563eb', // blue
+  '#7c3aed', // purple
+  '#0284c7', // cyan
+  '#16a34a', // green
+  '#d97706', // amber
+  '#dc2626', // red
+  '#6b7280', // gray
+  '#0891b2', // teal
+  '#4f46e5', // indigo
 ];
 
 function StatusBadge({ status }) {
   const map = {
-    'In Stock':  { cls: 'badge-gray',  dot: 'gray'  },
-    'Assigned':  { cls: 'badge-blue',  dot: 'blue'  },
-    'In Use':    { cls: 'badge-green', dot: 'green' },
-    'In Repair': { cls: 'badge-amber', dot: 'amber' },
-    'Returned':  { cls: 'badge-neutral', dot: 'gray' },
-    'Disposed':  { cls: 'badge-red',   dot: 'red'   },
+    'In Stock':  { cls: 'badge-gray',    dot: 'gray'  },
+    'Assigned':  { cls: 'badge-blue',    dot: 'blue'  },
+    'In Use':    { cls: 'badge-green',   dot: 'green' },
+    'In Repair': { cls: 'badge-amber',   dot: 'amber' },
+    'Returned':  { cls: 'badge-neutral', dot: 'gray'  },
+    'Disposed':  { cls: 'badge-red',     dot: 'red'   },
   };
   const { cls, dot } = map[status] ?? { cls: 'badge-gray', dot: 'gray' };
   return (
@@ -152,22 +77,164 @@ function AssetTypeIcon({ type }) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { assets, categories, employees, assignments } = useApp();
+  const [refreshedTime, setRefreshedTime] = useState(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  const [refreshNotice, setRefreshNotice] = useState(false);
+
+  // 1. Dynamic Summary Statistics
+  const totalAssets = assets.length;
+  const availableCount = assets.filter((a) => a.status === 'In Stock' || a.status === 'Returned').length;
+  const assignedCount = assets.filter((a) => a.status === 'Assigned' || a.status === 'In Use').length;
+  const inRepairCount = assets.filter((a) => a.status === 'In Repair').length;
+
+  const stats = [
+    {
+      label: 'Total Assets',
+      value: totalAssets.toLocaleString(),
+      meta: `${categories.length} categories tracked`,
+      accent: 'accent-blue',
+      iconColor: 'blue',
+      icon: (
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Available',
+      value: availableCount.toLocaleString(),
+      meta: 'Ready for assignment',
+      accent: 'accent-green',
+      iconColor: 'green',
+      icon: (
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+    {
+      label: 'Assigned',
+      value: assignedCount.toLocaleString(),
+      meta: `${employees.filter(e => e.status === 'Active').length} active employees`,
+      accent: 'accent-blue',
+      iconColor: 'blue',
+      icon: (
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+        </svg>
+      ),
+    },
+    {
+      label: 'In Repair',
+      value: inRepairCount.toLocaleString(),
+      meta: 'Maintenance & service',
+      accent: 'accent-amber',
+      iconColor: 'amber',
+      icon: (
+        <svg viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+        </svg>
+      ),
+    },
+  ];
+
+  // 2. Lifecycle Distribution
+  const lifecycleStatuses = [
+    { label: 'In Stock',  color: '#6b7280' },
+    { label: 'Assigned',  color: '#2563eb' },
+    { label: 'In Use',    color: '#16a34a' },
+    { label: 'In Repair', color: '#d97706' },
+    { label: 'Returned',  color: '#7c3aed' },
+    { label: 'Disposed',  color: '#dc2626' },
+  ];
+
+  const lifecycleSegments = lifecycleStatuses.map((item) => {
+    const count = assets.filter((a) => a.status === item.label).length;
+    const pct = totalAssets > 0 ? ((count / totalAssets) * 100).toFixed(1) : '0.0';
+    return { ...item, count, pct: parseFloat(pct) };
+  });
+
+  // 3. Category Overview Breakdown
+  const categoryOverview = categories.map((cat, idx) => {
+    const count = assets.filter((a) => {
+      const aCat = (a.category || '').toLowerCase();
+      const cName = cat.name.toLowerCase();
+      return aCat === cName ||
+        (cName.includes('network') && (aCat === 'router' || aCat === 'network')) ||
+        (cName.includes('mobile') && (aCat === 'smartphone' || aCat === 'mobile')) ||
+        (cName.includes('peripheral') && (aCat === 'keyboard' || aCat === 'mouse'));
+    }).length;
+
+    return {
+      label: cat.name,
+      count,
+      color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+    };
+  });
+
+  // 4. Dynamic Recent Activity Feed from Assignments & Assets
+  const recentActivities = assignments.slice(0, 6).map((asg) => {
+    const asset = assets.find((a) => a.id === asg.assetId);
+    const emp = employees.find((e) => e.id === asg.employeeId);
+    const assetTitle = asset?.assetName || asg.assetId;
+    const empName = emp?.name || asg.employeeId;
+
+    if (asg.status === 'Active') {
+      return {
+        color: 'blue',
+        text: (
+          <>
+            <strong>{assetTitle}</strong> assigned to <strong>{empName}</strong>
+          </>
+        ),
+        meta: `${asg.assignedDate} · Active assignment`,
+      };
+    }
+    return {
+      color: 'gray',
+      text: (
+        <>
+          <strong>{assetTitle}</strong> checked in from <strong>{empName}</strong>
+        </>
+      ),
+      meta: `${asg.returnedDate || asg.assignedDate} · Returned to stock`,
+    };
+  });
+
+  // Fallback if assignments are few
+  if (recentActivities.length === 0) {
+    recentActivities.push({
+      color: 'green',
+      text: <>Initial inventory setup completed with <strong>{totalAssets}</strong> assets</>,
+      meta: 'System initialized',
+    });
+  }
+
+  const handleRefresh = () => {
+    setRefreshedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    setRefreshNotice(true);
+    setTimeout(() => setRefreshNotice(false), 2000);
+  };
+
   return (
     <div>
       {/* Page Header */}
       <div className="page-header">
         <div className="page-header-left">
           <h1 className="page-title">Dashboard</h1>
-          <p className="page-subtitle">IT asset overview — as of 29 Sep 2026</p>
+          <p className="page-subtitle">
+            IT asset overview — Synchronized at {refreshedTime} {refreshNotice && <span style={{ color: 'var(--color-status-success)', marginLeft: '6px' }}>✓ Live</span>}
+          </p>
         </div>
         <div className="page-header-actions">
-          <button className="btn btn-secondary btn-sm">
+          <button className="btn btn-secondary btn-sm" onClick={handleRefresh}>
             <svg viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
             </svg>
             Refresh
           </button>
-          <button className="btn btn-primary btn-sm">
+          <button className="btn btn-primary btn-sm" onClick={() => navigate('/assets')}>
             <svg viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
             </svg>
@@ -178,7 +245,7 @@ export default function Dashboard() {
 
       {/* Stat cards */}
       <div className="dashboard-stats">
-        {STATS.map((s) => (
+        {stats.map((s) => (
           <div key={s.label} className={`stat-card ${s.accent}`}>
             <div className="stat-card-header">
               <span className="stat-card-label">{s.label}</span>
@@ -198,10 +265,12 @@ export default function Dashboard() {
           <div className="card-header">
             <div>
               <div className="card-title">Recent Assets</div>
-              <div className="card-subtitle">Last 6 asset records updated</div>
+              <div className="card-subtitle">Last {Math.min(6, assets.length)} asset records in inventory</div>
             </div>
             <div className="card-actions">
-              <button className="btn btn-ghost btn-sm">View all</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/assets')}>
+                View all ({totalAssets})
+              </button>
             </div>
           </div>
           <div className="table-wrapper recent-assets-table-wrap">
@@ -212,27 +281,29 @@ export default function Dashboard() {
                   <th>Asset ID</th>
                   <th>Status</th>
                   <th>Assignee</th>
-                  <th>Date</th>
+                  <th>Purchase Date</th>
                 </tr>
               </thead>
               <tbody>
-                {RECENT_ASSETS.map((row) => (
+                {assets.slice(0, 6).map((row) => (
                   <tr key={row.id}>
                     <td>
                       <div className="asset-type-cell">
                         <div className="asset-type-icon">
-                          <AssetTypeIcon type={row.type} />
+                          <AssetTypeIcon type={row.category} />
                         </div>
                         <div>
-                          <div className="asset-name">{row.name}</div>
-                          <div className="asset-tag">{row.type}</div>
+                          <div className="asset-name">{row.assetName}</div>
+                          <div className="asset-tag">{row.category}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="col-mono col-nowrap">{row.id}</td>
+                    <td className="col-mono col-nowrap">{row.assetCode}</td>
                     <td><StatusBadge status={row.status} /></td>
-                    <td className="col-nowrap">{row.assignee}</td>
-                    <td className="col-nowrap" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)' }}>{row.date}</td>
+                    <td className="col-nowrap">{row.assignedTo ? row.assignedTo.name : '—'}</td>
+                    <td className="col-nowrap" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-xs)' }}>
+                      {row.purchaseDate || '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -251,26 +322,26 @@ export default function Dashboard() {
             <div className="lifecycle-bar-wrapper">
               <div className="lifecycle-bar-label">Distribution by status</div>
               <div className="lifecycle-bar" role="img" aria-label="Asset lifecycle distribution bar">
-                {LIFECYCLE_SEGMENTS.map((seg) => (
+                {lifecycleSegments.map((seg) => (
                   <div
                     key={seg.label}
                     className="lifecycle-segment"
-                    style={{ width: `${seg.pct}%`, backgroundColor: seg.color }}
-                    title={`${seg.label}: ${seg.pct}%`}
+                    style={{ width: `${Math.max(seg.pct, 1)}%`, backgroundColor: seg.color }}
+                    title={`${seg.label}: ${seg.count} (${seg.pct}%)`}
                   />
                 ))}
               </div>
               <div className="lifecycle-legend">
-                {LIFECYCLE_SEGMENTS.map((seg) => (
+                {lifecycleSegments.map((seg) => (
                   <span key={seg.label} className="lifecycle-legend-item">
                     <span className="lifecycle-legend-dot" style={{ backgroundColor: seg.color }} />
-                    {seg.label} ({seg.pct}%)
+                    {seg.label} ({seg.count})
                   </span>
                 ))}
               </div>
             </div>
             <div className="overview-list">
-              {OVERVIEW_ITEMS.map((item) => (
+              {categoryOverview.map((item) => (
                 <div key={item.label} className="overview-item">
                   <div className="overview-item-left">
                     <span className="overview-item-dot" style={{ backgroundColor: item.color }} />
@@ -286,10 +357,12 @@ export default function Dashboard() {
           <div className="card">
             <div className="card-header">
               <div className="card-title">Recent Activity</div>
-              <button className="btn btn-ghost btn-sm">View log</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/assignments')}>
+                View log
+              </button>
             </div>
             <div className="activity-feed">
-              {ACTIVITY_FEED.map((item, idx) => (
+              {recentActivities.map((item, idx) => (
                 <div key={idx} className="activity-item">
                   <span className={`activity-dot ${item.color}`} />
                   <div className="activity-content">

@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
-import { MOCK_ASSETS, ASSET_CATEGORIES, ASSET_STATUSES } from '../data/mockAssets';
+import { useApp } from '../context/AppContext';
+import { ASSET_STATUSES } from '../data/mockAssets';
 import AssetTable from '../components/AssetTable';
 import AssetDetailModal from '../components/AssetDetailModal';
 import AssetFormModal from '../components/AssetFormModal';
 import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import AssetStatusTransitionModal from '../components/AssetStatusTransitionModal';
 
 export default function Assets() {
-  // Local state for Assets (in-memory CRUD)
-  const [assets, setAssets] = useState(MOCK_ASSETS);
+  const { assets, categories, addAsset, updateAsset, deleteAsset, transitionAssetStatus } = useApp();
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -19,6 +20,7 @@ export default function Assets() {
   const [editingAsset, setEditingAsset] = useState(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState(null);
+  const [assetToTransition, setAssetToTransition] = useState(null);
 
   // User feedback notice
   const [feedbackNotice, setFeedbackNotice] = useState(null);
@@ -104,11 +106,11 @@ export default function Assets() {
 
     if (exists) {
       // UPDATE
-      setAssets((prev) => prev.map((a) => (a.id === assetData.id ? assetData : a)));
+      updateAsset(assetData);
       showNotification(`Asset ${assetData.assetCode} successfully updated.`);
     } else {
       // CREATE
-      setAssets((prev) => [assetData, ...prev]);
+      addAsset(assetData);
       showNotification(`Asset ${assetData.assetCode} successfully created and registered.`);
     }
 
@@ -122,10 +124,21 @@ export default function Assets() {
 
   const handleConfirmDelete = (assetId) => {
     const target = assets.find((a) => a.id === assetId);
-    setAssets((prev) => prev.filter((a) => a.id !== assetId));
+    deleteAsset(assetId);
     setAssetToDelete(null);
     if (target) {
       showNotification(`Asset ${target.assetCode} (${target.assetName}) deleted.`);
+    }
+  };
+
+  const handleTransitionSubmit = (assetId, newStatus, reason) => {
+    const res = transitionAssetStatus(assetId, newStatus, reason);
+    if (res.success) {
+      const asset = assets.find((a) => a.id === assetId);
+      showNotification(`Asset ${asset?.assetCode || ''} transitioned to ${newStatus}.`);
+      setAssetToTransition(null);
+    } else {
+      alert(res.error || 'Failed to transition status');
     }
   };
 
@@ -289,9 +302,9 @@ export default function Assets() {
               aria-label="Filter by category"
             >
               <option value="ALL">All Categories</option>
-              {ASSET_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.name}>
+                  {cat.name}
                 </option>
               ))}
             </select>
@@ -329,12 +342,13 @@ export default function Assets() {
           </div>
         </div>
 
-        {/* 8-Column Asset Table with View, Edit, Delete */}
+        {/* 8-Column Asset Table with View, Edit, Delete, Transition */}
         <AssetTable
           assets={filteredAssets}
           onViewAsset={(asset) => setViewingAsset(asset)}
           onEditAsset={handleOpenEdit}
           onDeleteAsset={handleDeletePrompt}
+          onTransitionStatus={(asset) => setAssetToTransition(asset)}
         />
 
         {/* Card Footer / Pagination Information */}
@@ -365,6 +379,7 @@ export default function Assets() {
       <AssetFormModal
         isOpen={isFormOpen}
         initialData={editingAsset}
+        categories={categories}
         onSave={handleSaveAsset}
         onClose={() => {
           setIsFormOpen(false);
@@ -378,6 +393,16 @@ export default function Assets() {
           asset={assetToDelete}
           onConfirm={handleConfirmDelete}
           onCancel={() => setAssetToDelete(null)}
+        />
+      )}
+
+      {/* LIFECYCLE: Status Transition Modal */}
+      {assetToTransition && (
+        <AssetStatusTransitionModal
+          isOpen={Boolean(assetToTransition)}
+          asset={assetToTransition}
+          onTransition={handleTransitionSubmit}
+          onClose={() => setAssetToTransition(null)}
         />
       )}
     </div>
