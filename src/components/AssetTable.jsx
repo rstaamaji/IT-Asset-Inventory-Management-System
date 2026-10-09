@@ -31,7 +31,7 @@ export default function AssetTable({ assets, onViewAsset, onEditAsset, onDeleteA
 
   return (
     <div className="table-wrapper">
-      <table className="data-table">
+      <table className="data-table" style={{ minWidth: '1060px' }}>
         <thead>
           <tr>
             <th style={{ width: '130px' }}>Asset ID</th>
