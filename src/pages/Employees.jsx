@@ -52,14 +52,16 @@ export default function Employees() {
         return false;
       }
 
-      // 3. Search text (name, employeeCode, email, position)
+      // 3. Search text (name, employeeCode, email, position, location, department)
       if (searchQuery.trim() !== '') {
         const query = searchQuery.trim().toLowerCase();
-        const nameMatch = emp.name.toLowerCase().includes(query);
-        const codeMatch = emp.employeeCode.toLowerCase().includes(query);
-        const emailMatch = emp.email.toLowerCase().includes(query);
+        const nameMatch = (emp.name || '').toLowerCase().includes(query);
+        const codeMatch = (emp.employeeCode || '').toLowerCase().includes(query);
+        const emailMatch = (emp.email || '').toLowerCase().includes(query);
         const posMatch = (emp.position || '').toLowerCase().includes(query);
-        return nameMatch || codeMatch || emailMatch || posMatch;
+        const locMatch = (emp.location || '').toLowerCase().includes(query);
+        const deptMatch = (emp.department || '').toLowerCase().includes(query);
+        return nameMatch || codeMatch || emailMatch || posMatch || locMatch || deptMatch;
       }
 
       return true;
@@ -111,10 +113,15 @@ export default function Employees() {
 
   const handleConfirmDelete = (empId) => {
     const target = employees.find((e) => e.id === empId);
+    const heldAssetsCount = getEmployeeAssignedAssets(empId).length;
     deleteEmployee(empId);
     setEmployeeToDelete(null);
     if (target) {
-      showNotification(`Employee ${target.name} has been deleted.`);
+      if (heldAssetsCount > 0) {
+        showNotification(`Employee ${target.name} deleted. ${heldAssetsCount} asset(s) safely released back to In Stock inventory.`);
+      } else {
+        showNotification(`Employee ${target.name} has been deleted.`);
+      }
     }
   };
 
@@ -357,6 +364,7 @@ export default function Employees() {
           employee={viewingEmployee}
           assignedAssets={getEmployeeAssignedAssets(viewingEmployee.id)}
           onClose={() => setViewingEmployee(null)}
+          onEdit={handleOpenEdit}
         />
       )}
 
@@ -364,7 +372,7 @@ export default function Employees() {
       {employeeToDelete && (
         <EmployeeDeleteModal
           employee={employeeToDelete}
-          assignedAssetCount={getEmployeeAssignedAssets(employeeToDelete.id).length}
+          assignedAssets={getEmployeeAssignedAssets(employeeToDelete.id)}
           onConfirm={handleConfirmDelete}
           onCancel={() => setEmployeeToDelete(null)}
         />

@@ -15,10 +15,12 @@
 
 export const EMPLOYEE_DEPARTMENTS = [
   'IT',
+  'Engineering',
   'Finance',
   'HR',
   'Operations',
   'Marketing',
+  'Sales',
   'Management',
 ];
 
@@ -35,17 +37,19 @@ export const MOCK_EMPLOYEES = [
     location: 'HQ - Floor 3',
     phone: '+1 (555) 019-2831',
     status: 'Active',
+    joinedDate: '2023-01-15',
   },
   {
     id: 'emp-002',
     employeeCode: 'EMP-102',
     name: 'Sarah Connor',
     email: 's.connor@company.internal',
-    department: 'IT',
+    department: 'Engineering',
     position: 'Lead Systems Architect',
     location: 'HQ - Floor 4',
     phone: '+1 (555) 019-3342',
     status: 'Active',
+    joinedDate: '2023-03-20',
   },
   {
     id: 'emp-003',
@@ -57,6 +61,7 @@ export const MOCK_EMPLOYEES = [
     location: 'HQ - Floor 5',
     phone: '+1 (555) 019-4920',
     status: 'Active',
+    joinedDate: '2022-11-01',
   },
   {
     id: 'emp-004',
@@ -68,17 +73,19 @@ export const MOCK_EMPLOYEES = [
     location: 'Reception / Level 1',
     phone: '+1 (555) 019-5819',
     status: 'Active',
+    joinedDate: '2023-06-12',
   },
   {
     id: 'emp-005',
     employeeCode: 'EMP-105',
     name: 'Dwight Schrute',
     email: 'd.schrute@company.internal',
-    department: 'Marketing',
+    department: 'Sales',
     position: 'Senior Account Manager',
     location: 'Branch Office - Chicago',
     phone: '+1 (555) 019-6721',
     status: 'Active',
+    joinedDate: '2022-08-15',
   },
   {
     id: 'emp-006',
@@ -90,6 +97,7 @@ export const MOCK_EMPLOYEES = [
     location: 'HQ - Floor 4',
     phone: '+1 (555) 019-7812',
     status: 'Active',
+    joinedDate: '2023-09-01',
   },
   {
     id: 'emp-007',
@@ -101,6 +109,7 @@ export const MOCK_EMPLOYEES = [
     location: 'Data Center - Bay 2',
     phone: '+1 (555) 019-8923',
     status: 'Active',
+    joinedDate: '2023-10-18',
   },
   {
     id: 'emp-008',
@@ -112,6 +121,7 @@ export const MOCK_EMPLOYEES = [
     location: 'HQ - Floor 2',
     phone: '+1 (555) 019-9012',
     status: 'Active',
+    joinedDate: '2022-04-10',
   },
   {
     id: 'emp-009',
@@ -123,6 +133,7 @@ export const MOCK_EMPLOYEES = [
     location: 'HQ - Floor 2',
     phone: '+1 (555) 019-1294',
     status: 'Inactive',
+    joinedDate: '2022-01-10',
   },
   {
     id: 'emp-010',
@@ -134,5 +145,6 @@ export const MOCK_EMPLOYEES = [
     location: 'HQ - Floor 4',
     phone: '+1 (555) 019-4829',
     status: 'Active',
+    joinedDate: '2024-02-01',
   },
 ];
