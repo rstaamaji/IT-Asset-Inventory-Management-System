@@ -82,21 +82,29 @@ export function AppProvider({ children }) {
   // Employee Operations
   // ==========================================
   const addEmployee = (employeeData) => {
+    const today = new Date().toISOString().split('T')[0];
     const newEmployee = {
       ...employeeData,
       id: employeeData.id || `emp-${Date.now()}`,
+      joinedDate: employeeData.joinedDate || today,
+      createdAt: employeeData.createdAt || today,
     };
     setEmployees((prev) => [newEmployee, ...prev]);
     return newEmployee;
   };
 
   const updateEmployee = (employeeData) => {
-    setEmployees((prev) => prev.map((e) => (e.id === employeeData.id ? employeeData : e)));
+    setEmployees((prev) => prev.map((e) => (e.id === employeeData.id ? { ...e, ...employeeData } : e)));
 
     // Keep assignedTo snapshot on assets in sync with updated employee details
     setAssets((prev) =>
       prev.map((asset) => {
-        if (asset.assignedTo && (asset.assignedTo.id === employeeData.id || asset.assignedTo.name === employeeData.name)) {
+        if (
+          asset.assignedTo &&
+          (asset.assignedTo.id === employeeData.id ||
+            asset.assignedTo.email === employeeData.email ||
+            asset.assignedTo.name === employeeData.name)
+        ) {
           return {
             ...asset,
             assignedTo: {
@@ -113,16 +121,29 @@ export function AppProvider({ children }) {
   };
 
   const deleteEmployee = (employeeId) => {
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) return;
+
     // Check if employee has active assigned assets
-    const activeAssets = assets.filter(
-      (a) => a.assignedTo && (a.assignedTo.id === employeeId || a.assignedTo.email === employees.find((e) => e.id === employeeId)?.email)
+    const activeAssetIdsFromAssignments = new Set(
+      assignments.filter((asg) => asg.employeeId === employeeId && asg.status === 'Active').map((asg) => asg.assetId)
     );
 
-    // If active assets exist, release them to 'In Stock'
+    const activeAssets = assets.filter(
+      (a) =>
+        activeAssetIdsFromAssignments.has(a.id) ||
+        (a.assignedTo &&
+          (a.assignedTo.id === employeeId ||
+            a.assignedTo.email === employee.email ||
+            a.assignedTo.name === employee.name))
+    );
+
+    // If active assets exist, release them to 'In Stock' and terminate active assignments
     if (activeAssets.length > 0) {
+      const activeIds = new Set(activeAssets.map((a) => a.id));
       setAssets((prev) =>
         prev.map((a) => {
-          if (a.assignedTo && (a.assignedTo.id === employeeId || a.assignedTo.email === employees.find((e) => e.id === employeeId)?.email)) {
+          if (activeIds.has(a.id)) {
             return {
               ...a,
               status: 'In Stock',
@@ -141,7 +162,7 @@ export function AppProvider({ children }) {
               ...asg,
               status: 'Returned',
               returnedDate: new Date().toISOString().split('T')[0],
-              notes: `${asg.notes || ''} (Auto-returned due to employee deletion)`.trim(),
+              notes: `${asg.notes || ''} (Auto-returned due to employee profile deletion)`.trim(),
             };
           }
           return asg;
@@ -355,9 +376,23 @@ export function AppProvider({ children }) {
   const getEmployeeAssignedAssets = (employeeId) => {
     const employee = employees.find((e) => e.id === employeeId);
     if (!employee) return [];
-    return assets.filter(
-      (a) => a.assignedTo && (a.assignedTo.id === employeeId || a.assignedTo.name === employee.name || a.assignedTo.email === employee.email)
+
+    const activeAssetIds = new Set(
+      assignments.filter((asg) => asg.employeeId === employeeId && asg.status === 'Active').map((asg) => asg.assetId)
     );
+
+    return assets.filter(
+      (a) =>
+        activeAssetIds.has(a.id) ||
+        (a.assignedTo &&
+          (a.assignedTo.id === employeeId ||
+            a.assignedTo.name === employee.name ||
+            a.assignedTo.email === employee.email))
+    );
+  };
+
+  const getEmployeeAssignmentHistory = (employeeId) => {
+    return assignments.filter((asg) => asg.employeeId === employeeId);
   };
 
   const getAssetActiveAssignment = (assetId) => {
@@ -407,6 +442,7 @@ export function AppProvider({ children }) {
     updateEmployee,
     deleteEmployee,
     getEmployeeAssignedAssets,
+    getEmployeeAssignmentHistory,
     // Asset actions
     addAsset,
     updateAsset,
