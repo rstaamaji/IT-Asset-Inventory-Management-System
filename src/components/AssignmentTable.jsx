@@ -28,17 +28,17 @@ export default function AssignmentTable({
 
   return (
     <div className="table-wrapper">
-      <table className="data-table">
+      <table className="data-table" style={{ minWidth: '1120px' }}>
         <thead>
           <tr>
-            <th style={{ width: '220px' }}>Assigned Asset</th>
-            <th style={{ width: '210px' }}>Custodian Employee</th>
-            <th style={{ width: '120px' }}>Checkout Date</th>
-            <th style={{ width: '130px' }}>Expected Return</th>
-            <th style={{ width: '120px' }}>Returned Date</th>
-            <th style={{ width: '100px' }}>Status</th>
-            <th>Notes</th>
-            <th style={{ width: '130px', textAlign: 'center' }}>Actions</th>
+            <th style={{ width: '280px', minWidth: '260px' }}>Assigned Asset</th>
+            <th style={{ width: '210px', minWidth: '190px' }}>Custodian Employee</th>
+            <th style={{ width: '120px', minWidth: '115px' }}>Checkout Date</th>
+            <th style={{ width: '130px', minWidth: '120px' }}>Expected Return</th>
+            <th style={{ width: '120px', minWidth: '115px' }}>Returned Date</th>
+            <th style={{ width: '100px', minWidth: '95px' }}>Status</th>
+            <th style={{ minWidth: '180px' }}>Notes</th>
+            <th style={{ width: '130px', minWidth: '120px', textAlign: 'center' }}>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -51,11 +51,11 @@ export default function AssignmentTable({
               <tr key={asg.id}>
                 {/* 1. Asset */}
                 <td>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                     <div
                       style={{
-                        width: 28,
-                        height: 28,
+                        width: 32,
+                        height: 32,
                         borderRadius: 'var(--radius-sm)',
                         backgroundColor: 'var(--color-bg)',
                         border: '1px solid var(--color-border)',
@@ -66,65 +66,76 @@ export default function AssignmentTable({
                         flexShrink: 0,
                       }}
                     >
-                      <AssetCategoryIcon category={asset?.category} size={14} />
+                      <AssetCategoryIcon category={asset?.category} size={15} />
                     </div>
-                    <div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
                       <div
                         style={{
                           fontWeight: 'var(--font-medium)',
                           fontSize: 'var(--text-sm)',
                           color: 'var(--color-text-primary)',
                           cursor: onViewAsset ? 'pointer' : 'default',
+                          lineHeight: 1.35,
+                          marginBottom: 3,
                         }}
                         onClick={() => onViewAsset && asset && onViewAsset(asset)}
                         title={asset ? 'Click to inspect asset' : ''}
                       >
                         {asset?.assetName || 'Unknown Asset'}
                       </div>
-                      <span className="asset-code-badge" style={{ fontSize: '11px', padding: '1px 5px' }}>
-                        {asset?.assetCode || asg.assetId}
-                      </span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="asset-code-badge" style={{ fontSize: '11px', padding: '1px 5px' }}>
+                          {asset?.assetCode || asg.assetId}
+                        </span>
+                        {asset?.category && (
+                          <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                            · {asset.category}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </td>
 
                 {/* 2. Employee */}
                 <td>
-                  <div>
+                  <div style={{ minWidth: 0 }}>
                     <div
                       style={{
                         fontWeight: 'var(--font-semibold)',
                         fontSize: 'var(--text-sm)',
                         color: 'var(--color-text-primary)',
                         cursor: onViewEmployee ? 'pointer' : 'default',
+                        lineHeight: 1.35,
+                        marginBottom: 2,
                       }}
                       onClick={() => onViewEmployee && employee && onViewEmployee(employee)}
                       title={employee ? 'Click to inspect employee' : ''}
                     >
                       {employee?.name || 'Unknown Custodian'}
                     </div>
-                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                      {employee?.department} {employee?.employeeCode && `· ${employee.employeeCode}`}
+                    <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      {employee?.department || 'Staff'} {employee?.employeeCode && `· ${employee.employeeCode}`}
                     </div>
                   </div>
                 </td>
 
                 {/* 3. Checkout Date */}
-                <td className="col-nowrap" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
+                <td className="col-nowrap col-mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}>
                   {asg.assignedDate}
                 </td>
 
                 {/* 4. Expected Return Date */}
-                <td className="col-nowrap" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                <td className="col-nowrap col-mono" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
                   {asg.expectedReturnDate || '— (Indefinite)'}
                 </td>
 
                 {/* 5. Actual Returned Date */}
-                <td className="col-nowrap" style={{ fontSize: 'var(--text-xs)' }}>
+                <td className="col-nowrap col-mono" style={{ fontSize: 'var(--text-xs)' }}>
                   {asg.returnedDate ? (
                     <span style={{ color: 'var(--color-text-secondary)' }}>{asg.returnedDate}</span>
                   ) : (
-                    <span style={{ color: 'var(--color-status-success)', fontStyle: 'italic' }}>— Active</span>
+                    <span style={{ color: 'var(--color-text-muted)' }}>—</span>
                   )}
                 </td>
 
@@ -142,7 +153,7 @@ export default function AssignmentTable({
                     style={{
                       fontSize: 'var(--text-xs)',
                       color: 'var(--color-text-secondary)',
-                      maxWidth: '240px',
+                      maxWidth: '220px',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -160,7 +171,7 @@ export default function AssignmentTable({
                       type="button"
                       className="btn btn-secondary btn-sm"
                       onClick={() => onReturnPrompt && onReturnPrompt(asg, asset, employee)}
-                      style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }}
+                      style={{ padding: '3px 10px', fontSize: 'var(--text-xs)', whiteSpace: 'nowrap' }}
                       title="Return equipment back to inventory"
                     >
                       Return Asset

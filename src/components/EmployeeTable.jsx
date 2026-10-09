@@ -33,7 +33,7 @@ export default function EmployeeTable({
 
   return (
     <div className="table-wrapper">
-      <table className="data-table">
+      <table className="data-table" style={{ minWidth: '980px' }}>
         <thead>
           <tr>
             <th style={{ width: '220px' }}>Employee</th>

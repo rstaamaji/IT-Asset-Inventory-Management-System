@@ -547,6 +547,7 @@
   border-radius: var(--radius-sm);
   display: inline-block;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 /* Detail Drawer / Modal Backdrop */
