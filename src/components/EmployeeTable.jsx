@@ -105,9 +105,12 @@ export default function EmployeeTable({
 
                 {/* Position */}
                 <td className="col-nowrap">
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)', fontWeight: 'var(--font-medium)' }}>
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-primary)', fontWeight: 'var(--font-medium)' }}>
                     {emp.position || 'Staff'}
-                  </span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                    Joined {emp.joinedDate || emp.createdAt || '—'}
+                  </div>
                 </td>
 
                 {/* Contact & Location */}
