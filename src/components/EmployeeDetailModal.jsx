@@ -5,7 +5,7 @@ import AssetStatusBadge from './AssetStatusBadge';
  * Reusable EmployeeDetailModal Component
  * Shows employee profile and the live list of all hardware assets assigned to this employee.
  */
-export default function EmployeeDetailModal({ employee, assignedAssets = [], onClose }) {
+export default function EmployeeDetailModal({ employee, assignedAssets = [], onClose, onEdit }) {
   if (!employee) return null;
 
   return (
@@ -78,9 +78,13 @@ export default function EmployeeDetailModal({ employee, assignedAssets = [], onC
                 <span className="detail-item-label">Contact Phone</span>
                 <span className="detail-item-value">{employee.phone || '—'}</span>
               </div>
-              <div className="detail-item" style={{ gridColumn: 'span 2' }}>
+              <div className="detail-item">
                 <span className="detail-item-label">Office Location</span>
                 <span className="detail-item-value">{employee.location}</span>
+              </div>
+              <div className="detail-item">
+                <span className="detail-item-label">Joined Date</span>
+                <span className="detail-item-value">{employee.joinedDate || employee.createdAt || '—'}</span>
               </div>
             </div>
           </div>
@@ -91,7 +95,9 @@ export default function EmployeeDetailModal({ employee, assignedAssets = [], onC
           <div>
             <div className="detail-section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Assigned IT Equipment</span>
-              <span className="badge badge-blue">{assignedAssets.length} active</span>
+              <span className={`badge ${assignedAssets.length > 0 ? 'badge-blue' : 'badge-neutral'}`}>
+                {assignedAssets.length} active
+              </span>
             </div>
 
             {assignedAssets.length === 0 ? (
@@ -134,6 +140,7 @@ export default function EmployeeDetailModal({ employee, assignedAssets = [], onC
                                 border: '1px solid var(--color-border)',
                                 display: 'flex',
                                 alignItems: 'center',
+                                justifySelf: 'center',
                                 justifyContent: 'center',
                                 color: 'var(--color-text-secondary)',
                                 flexShrink: 0,
@@ -167,10 +174,27 @@ export default function EmployeeDetailModal({ employee, assignedAssets = [], onC
         </div>
 
         {/* Footer */}
-        <div className="card-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-2)' }}>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-            Close
-          </button>
+        <div className="card-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+            System ID: <code style={{ fontFamily: 'var(--font-mono)' }}>{employee.id}</code>
+          </span>
+          <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+              Close
+            </button>
+            {onEdit && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  onClose();
+                  onEdit(employee);
+                }}
+              >
+                Edit Employee
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
