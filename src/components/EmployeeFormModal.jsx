@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { EMPLOYEE_DEPARTMENTS, EMPLOYEE_STATUSES } from '../data/mockEmployees';
 
 function getInitialEmployeeState(initialData) {
+  const today = new Date().toISOString().split('T')[0];
+
   if (initialData) {
     return {
       employeeCode: initialData.employeeCode || '',
@@ -12,6 +14,7 @@ function getInitialEmployeeState(initialData) {
       location: initialData.location || '',
       phone: initialData.phone || '',
       status: initialData.status || 'Active',
+      joinedDate: initialData.joinedDate || initialData.createdAt || today,
     };
   }
 
@@ -24,6 +27,7 @@ function getInitialEmployeeState(initialData) {
     location: '',
     phone: '',
     status: 'Active',
+    joinedDate: today,
   };
 }
 
@@ -46,10 +50,14 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
     const trimmedCode = formData.employeeCode.trim();
     const trimmedName = formData.name.trim();
     const trimmedEmail = formData.email.trim();
+    const trimmedPos = formData.position.trim();
+    const trimmedLoc = formData.location.trim();
 
     // 1. Name required
     if (!trimmedName) {
       newErrors.name = 'Employee name is required';
+    } else if (trimmedName.length < 2) {
+      newErrors.name = 'Employee name must be at least 2 characters';
     }
 
     // 2. Employee code required & unique
@@ -58,7 +66,7 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
     } else {
       const isDuplicateCode = existingEmployees.some((emp) => {
         if (isEdit && emp.id === initialData.id) return false;
-        return emp.employeeCode.trim().toLowerCase() === trimmedCode.toLowerCase();
+        return (emp.employeeCode || '').trim().toLowerCase() === trimmedCode.toLowerCase();
       });
 
       if (isDuplicateCode) {
@@ -66,14 +74,33 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
       }
     }
 
-    // 3. Email must be valid
+    // 3. Email required, valid format & unique
     if (!trimmedEmail) {
       newErrors.email = 'Email address is required';
     } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(trimmedEmail)) {
         newErrors.email = 'Please enter a valid email address (e.g. user@company.internal)';
+      } else {
+        const isDuplicateEmail = existingEmployees.some((emp) => {
+          if (isEdit && emp.id === initialData.id) return false;
+          return (emp.email || '').trim().toLowerCase() === trimmedEmail.toLowerCase();
+        });
+
+        if (isDuplicateEmail) {
+          newErrors.email = `Email address "${trimmedEmail}" is already registered to another employee.`;
+        }
       }
+    }
+
+    // 4. Position required
+    if (!trimmedPos) {
+      newErrors.position = 'Job title / position is required';
+    }
+
+    // 5. Location required
+    if (!trimmedLoc) {
+      newErrors.location = 'Office location is required';
     }
 
     setErrors(newErrors);
@@ -93,10 +120,12 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
       name: formData.name.trim(),
       email: formData.email.trim().toLowerCase(),
       department: formData.department,
-      position: formData.position.trim() || 'Staff',
-      location: formData.location.trim() || 'HQ',
+      position: formData.position.trim(),
+      location: formData.location.trim(),
       phone: formData.phone.trim() || '—',
       status: formData.status,
+      joinedDate: formData.joinedDate || new Date().toISOString().split('T')[0],
+      createdAt: initialData?.createdAt || formData.joinedDate || new Date().toISOString().split('T')[0],
     };
 
     onSave(payload);
@@ -241,7 +270,7 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
 
             <div className="form-group">
               <label className="form-label" htmlFor="empPosition">
-                Job Title / Position
+                Job Title / Position <span className="form-required">*</span>
               </label>
               <input
                 id="empPosition"
@@ -250,8 +279,9 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
                 placeholder="e.g. Systems Engineer, Financial Analyst"
                 value={formData.position}
                 onChange={handleChange}
-                className="form-input"
+                className={`form-input ${errors.position ? 'has-error' : ''}`}
               />
+              {errors.position && <span className="form-error">{errors.position}</span>}
             </div>
           </div>
 
@@ -259,7 +289,7 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
           <div className="form-grid-2">
             <div className="form-group">
               <label className="form-label" htmlFor="empLocation">
-                Office Location / Building
+                Office Location / Building <span className="form-required">*</span>
               </label>
               <input
                 id="empLocation"
@@ -268,8 +298,9 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
                 placeholder="e.g. HQ - Floor 3, Chicago Branch"
                 value={formData.location}
                 onChange={handleChange}
-                className="form-input"
+                className={`form-input ${errors.location ? 'has-error' : ''}`}
               />
+              {errors.location && <span className="form-error">{errors.location}</span>}
             </div>
 
             <div className="form-group">
@@ -290,6 +321,23 @@ function EmployeeFormContent({ initialData, existingEmployees = [], onSave, onCl
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Row 5: Joined Date */}
+          <div className="form-grid-2">
+            <div className="form-group">
+              <label className="form-label" htmlFor="empJoinedDate">
+                Joined Date
+              </label>
+              <input
+                id="empJoinedDate"
+                name="joinedDate"
+                type="date"
+                value={formData.joinedDate}
+                onChange={handleChange}
+                className="form-input"
+              />
             </div>
           </div>
         </div>
