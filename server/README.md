@@ -468,6 +468,42 @@ curl -X PATCH "http://localhost:5000/api/assets/ast-004/status" \
 
 ---
 
+### 7.6 Dashboard Analytics API (`/api/dashboard/stats`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/dashboard/stats` | Live server-wide KPI counters, financial valuation, and category/status distributions |
+
+#### Example:
+```bash
+curl -X GET "http://localhost:5000/api/dashboard/stats"
+```
+
+Response format:
+```json
+{
+  "status": "success",
+  "data": {
+    "stats": {
+      "totalAssets": 18,
+      "availableCount": 7,
+      "assignedCount": 8,
+      "inRepairCount": 2,
+      "disposedCount": 1,
+      "totalInventoryValue": 28450.00,
+      "totalCategories": 10,
+      "totalEmployees": 12,
+      "activeAssignments": 5,
+      "categoryDistribution": [ ... ],
+      "statusDistribution": [ ... ],
+      "recentActivities": [ ... ]
+    }
+  }
+}
+```
+
+---
+
 ## 8. Automated API Test Suite
 
 Run the automated backend test suite:
