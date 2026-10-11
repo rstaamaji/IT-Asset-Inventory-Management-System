@@ -257,3 +257,129 @@ describe('6. Asset Endpoint Payload Validation', () => {
     assert.ok(body.message.includes("Invalid status 'UnknownStatus'"));
   });
 });
+
+describe('7. Assignment Endpoint Payload Validation', () => {
+  test('POST /api/assignments rejects missing assetId or employeeId', async () => {
+    const res = await fetch(`${baseUrl}/api/assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        notes: 'Trying to assign without specifying asset or employee',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Both assetId and employeeId are required'));
+  });
+
+  test('POST /api/assignments rejects malformed assignedDate format', async () => {
+    const res = await fetch(`${baseUrl}/api/assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assetId: 'ast-001',
+        employeeId: 'emp-001',
+        assignedDate: 'not-a-date',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Invalid assignedDate format'));
+  });
+
+  test('POST /api/assignments rejects expectedReturnDate earlier than assignedDate', async () => {
+    const res = await fetch(`${baseUrl}/api/assignments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        assetId: 'ast-001',
+        employeeId: 'emp-001',
+        assignedDate: '2025-06-15',
+        expectedReturnDate: '2025-06-01',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Expected return date'));
+    assert.ok(body.message.includes('cannot be earlier than assigned date'));
+  });
+
+  test('POST /api/assignments/:id/return rejects malformed returnedDate format', async () => {
+    const res = await fetch(`${baseUrl}/api/assignments/asg-001/return`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        returnedDate: '2024-99-99',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Invalid returnedDate format'));
+  });
+});
+
+describe('8. Asset Lifecycle Status Endpoint Validation', () => {
+  test('PATCH /api/assets/:id/status rejects request with missing status', async () => {
+    const res = await fetch(`${baseUrl}/api/assets/ast-001/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reason: 'Missing status payload',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('New status is required'));
+  });
+
+  test('PATCH /api/assets/:id/status rejects invalid lifecycle status value', async () => {
+    const res = await fetch(`${baseUrl}/api/assets/ast-001/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'LostForever',
+      }),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes("Invalid status 'LostForever'"));
+  });
+});
+
+describe('9. Database Concurrency & Constraint Error Mappers', () => {
+  test('handleDatabaseError maps unique_active_asset_assignment partial index to 409 Conflict', () => {
+    let capturedStatus;
+    let capturedPayload;
+    const mockRes = {
+      status(s) {
+        capturedStatus = s;
+        return this;
+      },
+      json(p) {
+        capturedPayload = p;
+        return this;
+      },
+    };
+
+    const conflictErr = new Error('duplicate key value violates unique constraint');
+    conflictErr.code = '23505';
+    conflictErr.constraint = 'idx_unique_active_asset_assignment';
+
+    handleDatabaseError(conflictErr, mockRes);
+    assert.equal(capturedStatus, 409);
+    assert.equal(capturedPayload.status, 'fail');
+    assert.ok(capturedPayload.message.includes('already has an active assignment in progress'));
+  });
+});

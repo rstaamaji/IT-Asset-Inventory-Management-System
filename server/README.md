@@ -383,6 +383,91 @@ curl -X DELETE "http://localhost:5000/api/assets/ast-001"
 
 ---
 
+### 7.4 Assignment API (`/api/assignments`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/assignments` | Paginated assignment list (`?page=1&limit=20&q=&status=&employee_id=&asset_id=`) |
+| `GET` | `/api/assignments/:id` | Get assignment by ID with full joined asset & employee details |
+| `POST` | `/api/assignments` | Assign asset to active employee in an atomic PostgreSQL transaction |
+| `POST` | `/api/assignments/:id/return` | Return assigned asset, update assignment to `Returned`, and return asset to stock |
+| `PATCH` | `/api/assignments/:id/return` | Alternative REST verb pointing to the return workflow handler |
+
+#### Assignment Rules & Invariants:
+1. **Asset Eligibility**: The asset must exist, cannot be in `Disposed` or `In Repair` status, and cannot already be checked out to another employee.
+2. **Employee Eligibility**: The employee must exist and have `status = 'Active'`. Inactive employees cannot receive equipment.
+3. **Date Logic**: `expectedReturnDate` (if provided) must be on or after `assignedDate`.
+4. **Concurrency Safety**: The asset row is locked with `SELECT ... FOR UPDATE`. Concurrency races are further protected at the database engine level by partial unique index `idx_unique_active_asset_assignment`.
+5. **Atomic Audit Logging**: An entry is appended to `asset_status_history` within the same transaction. Real actor identity is preserved when provided (never fabricated).
+
+#### Examples:
+
+**List Assignments (filter by status or employee):**
+```bash
+curl -X GET "http://localhost:5000/api/assignments?status=Active&employee_id=emp-001"
+```
+
+**Create New Assignment:**
+```bash
+curl -X POST "http://localhost:5000/api/assignments" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "assetId": "ast-003",
+    "employeeId": "emp-001",
+    "assignedDate": "2024-06-01",
+    "expectedReturnDate": "2025-06-01",
+    "notes": "Project lead portable workstation allocation",
+    "actor": "IT Operations Lead"
+  }'
+```
+
+**Return Assigned Asset (Idempotent & Audit-Preserving):**
+```bash
+curl -X POST "http://localhost:5000/api/assignments/asg-001/return" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "returnedDate": "2025-01-15",
+    "returnNotes": "Returned in pristine condition after project wrap-up",
+    "returnStatus": "In Stock",
+    "actor": "Asset Return Clerk"
+  }'
+```
+*Note: Repeated return attempts on already returned assignments return `409 Conflict` to prevent state corruption.*
+
+---
+
+### 7.5 Asset Lifecycle API (`PATCH /api/assets/:id/status`)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `PATCH` | `/api/assets/:id/status` | Transition asset lifecycle state with validation against active assignments |
+| `PUT` | `/api/assets/:id/status` | Alias for lifecycle status transition |
+
+#### Lifecycle State Matrix & Rules:
+- **Terminal State**: Once an asset enters `Disposed`, it is permanently decommissioned and cannot transition back to any operational state.
+- **Active Assignment Protection**:
+  - Assets with an active assignment cannot be marked `In Stock` (must be returned first).
+  - Assets with an active assignment cannot be marked `Disposed`.
+  - Assets with an active assignment cannot be placed in repair without concluding or returning the assignment.
+- **Under Repair / Disposed Assets**: Cannot be assigned or transitioned directly to `Assigned` / `In Use`.
+- **Assignment Required**: Assets cannot be marked `Assigned` or `In Use` without an active custodian assignment.
+- **Safe Return Preservation**: Returning an asset that is currently `In Repair` maintains its `In Repair` state rather than silently releasing it to `In Stock`.
+
+#### Example:
+
+**Mark Asset In Repair:**
+```bash
+curl -X PATCH "http://localhost:5000/api/assets/ast-004/status" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "status": "In Repair",
+    "reason": "Battery bulging reported; queued for vendor replacement",
+    "actor": "Desktop Support Tech"
+  }'
+```
+
+---
+
 ## 8. Automated API Test Suite
 
 Run the automated backend test suite:
@@ -391,12 +476,15 @@ Run the automated backend test suite:
 npm run test:api
 ```
 
-The test runner tests:
-- Service discovery and root informational endpoint (`GET /`)
-- Custom 404 handler for unmatched paths
-- Pagination parser bounds, offset calculations, and sanitization
-- Email and date format validators
-- Lifecycle status enum validation (`In Stock`, `Assigned`, `In Use`, `In Repair`, `Returned`, `Disposed`)
-- PostgreSQL constraint error mappers (`23505` duplicate key, `23503` foreign key, `23514` check constraints)
-- Endpoint payload validations for Categories, Employees, and Assets
+The test suite contains 22 automated integration checks across 9 test suites:
+1. API Foundation & Root Endpoints (`GET /`, fallback `404`)
+2. Validation & Input Normalization Helpers (`parsePagination`, `isValidEmail`, `isValidDate`, `ALLOWED_ASSET_STATUSES`)
+3. Database Error Mapping & HTTP Status Codes (`23505`, `23503`, `23514`)
+4. Category Endpoint Payload Validation (name requirement, unique constraint)
+5. Employee Endpoint Payload Validation (mandatory fields, email format, status enum)
+6. Asset Endpoint Payload Validation (mandatory fields, lifecycle status enum)
+7. Assignment Endpoint Payload Validation (`assetId`/`employeeId` presence, date formats, return date logic)
+8. Asset Lifecycle Status Endpoint Validation (status requirement, invalid status rejection)
+9. Database Concurrency & Constraint Error Mappers (`idx_unique_active_asset_assignment` $\rightarrow$ `409 Conflict`)
+
 

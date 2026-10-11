@@ -359,10 +359,11 @@ export async function createAsset(req, res) {
 
     // 2. Insert initial asset status history entry
     const historyId = `sh-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const realActor = actor && typeof actor === 'string' && actor.trim() ? actor.trim() : null;
     await client.query(
       `INSERT INTO asset_status_history (id, asset_id, previous_status, new_status, reason, actor, timestamp)
        VALUES ($1, $2, NULL, $3, $4, $5, CURRENT_TIMESTAMP)`,
-      [historyId, assetId, targetStatus, 'Initial asset registration', 'System']
+      [historyId, assetId, targetStatus, 'Initial asset registration', realActor]
     );
 
     await client.query('COMMIT');
@@ -483,6 +484,7 @@ export async function updateAsset(req, res) {
     // 3. Log status change to asset_status_history if status changed
     if (newStatus !== current.status) {
       const historyId = `sh-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const realActor = actor && typeof actor === 'string' && actor.trim() ? actor.trim() : null;
       await client.query(
         `INSERT INTO asset_status_history (id, asset_id, previous_status, new_status, reason, actor, timestamp)
          VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
@@ -491,8 +493,8 @@ export async function updateAsset(req, res) {
           id,
           current.status,
           newStatus,
-          reason ? reason.trim() : 'Asset status modified via API',
-          actor ? actor.trim() : 'System',
+          reason ? reason.trim() : `Asset status modified to ${newStatus}`,
+          realActor,
         ]
       );
     }
@@ -614,10 +616,194 @@ export async function deleteAsset(req, res) {
   }
 }
 
+/**
+ * PATCH /api/assets/:id/status (and PUT /api/assets/:id/status)
+ * Dedicated asset lifecycle transition endpoint.
+ * Enforces strict lifecycle rules:
+ * - Disposed state is terminal.
+ * - An asset with an active assignment cannot be disposed or marked In Stock.
+ * - An asset under repair or disposed cannot be assigned.
+ * - An asset cannot be marked Assigned/In Use without a custodian assignment.
+ * - Real actor recorded without fabrication (null if not provided).
+ */
+export async function updateAssetStatus(req, res) {
+  const { id } = req.params;
+  const { status, reason, actor } = req.body;
+
+  const targetStatus = status ? status.trim() : '';
+  if (!targetStatus) {
+    return badRequest(res, 'New status is required');
+  }
+
+  if (!ALLOWED_ASSET_STATUSES.includes(targetStatus)) {
+    return badRequest(
+      res,
+      `Invalid status '${targetStatus}'. Allowed: ${ALLOWED_ASSET_STATUSES.join(', ')}`
+    );
+  }
+
+  const realActor = actor && typeof actor === 'string' && actor.trim() ? actor.trim() : null;
+  const statusReason = reason && typeof reason === 'string' && reason.trim() ? reason.trim() : '';
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+
+    // 1. Lock asset row
+    const assetRes = await client.query('SELECT * FROM assets WHERE id = $1 FOR UPDATE', [id]);
+    if (assetRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return notFound(res, `Asset with ID '${id}' not found`);
+    }
+    const asset = assetRes.rows[0];
+
+    // 2. Terminal state check
+    if (asset.status === 'Disposed') {
+      await client.query('ROLLBACK');
+      return badRequest(
+        res,
+        'Cannot transition from Disposed state. Asset has been permanently decommissioned.'
+      );
+    }
+
+    // 3. No-op transition check
+    if (asset.status === targetStatus) {
+      await client.query('ROLLBACK');
+      return badRequest(res, `Asset is already in '${targetStatus}' status.`);
+    }
+
+    // 4. Check active assignment on this asset
+    const asgRes = await client.query(
+      `SELECT id, employee_id FROM assignments WHERE asset_id = $1 AND status = 'Active' FOR UPDATE`,
+      [id]
+    );
+    const hasActiveAssignment = asgRes.rowCount > 0;
+    const activeAssignment = asgRes.rows[0] || null;
+
+    // Rule: Asset under repair or disposed cannot be assigned directly
+    if ((asset.status === 'In Repair' || asset.status === 'Disposed') && (targetStatus === 'Assigned' || targetStatus === 'In Use')) {
+      await client.query('ROLLBACK');
+      return badRequest(
+        res,
+        `Cannot transition asset in '${asset.status}' state directly to '${targetStatus}'. Check out equipment via the assignment workflow once available.`
+      );
+    }
+
+    // Rule: Asset with active assignment cannot be disposed or marked In Stock
+    if (hasActiveAssignment) {
+      if (targetStatus === 'In Stock') {
+        await client.query('ROLLBACK');
+        return conflict(
+          res,
+          'Cannot transition asset to In Stock while an active assignment exists. Return the assignment first.'
+        );
+      }
+      if (targetStatus === 'Disposed') {
+        await client.query('ROLLBACK');
+        return conflict(
+          res,
+          'Cannot dispose asset while an active assignment exists. Conclude or return the assignment first.'
+        );
+      }
+      if (targetStatus === 'In Repair') {
+        await client.query('ROLLBACK');
+        return conflict(
+          res,
+          'Cannot place asset in repair while actively assigned to an employee. Return the asset first.'
+        );
+      }
+    }
+
+    // Rule: An asset cannot be marked 'Assigned' or 'In Use' without an active assignment/assignee
+    if ((targetStatus === 'Assigned' || targetStatus === 'In Use') && !hasActiveAssignment && !asset.assigned_to_employee_id) {
+      await client.query('ROLLBACK');
+      return badRequest(
+        res,
+        `Cannot mark asset as '${targetStatus}' without an active custodian assignment. Use the assignment workflow (POST /api/assignments).`
+      );
+    }
+
+    // Handle side-effects of transition
+    let newAssignedToId = asset.assigned_to_employee_id;
+
+    if (targetStatus === 'Returned') {
+      // Conclude active assignment if one exists
+      if (hasActiveAssignment) {
+        const returnNote = statusReason ? ` [${statusReason}]` : '';
+        await client.query(
+          `UPDATE assignments
+           SET status = 'Returned',
+               returned_date = CURRENT_DATE,
+               notes = COALESCE(notes || '', '') || $2
+           WHERE id = $1`,
+          [activeAssignment.id, returnNote]
+        );
+      }
+      newAssignedToId = null;
+    } else if (targetStatus === 'In Stock' || targetStatus === 'Disposed') {
+      newAssignedToId = null;
+    }
+
+    // 5. Append status history record
+    const historyId = `sh-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const finalReason = statusReason || `Status transitioned from ${asset.status} to ${targetStatus}`;
+
+    await client.query(
+      `INSERT INTO asset_status_history (
+        id, asset_id, previous_status, new_status, reason, actor, timestamp
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+      [historyId, id, asset.status, targetStatus, finalReason, realActor]
+    );
+
+    // 6. Update asset
+    const updatedRes = await client.query(
+      `UPDATE assets
+       SET status = $2, assigned_to_employee_id = $3
+       WHERE id = $1
+       RETURNING *`,
+      [id, targetStatus, newAssignedToId]
+    );
+
+    // Fetch joined details
+    const joinedRes = await client.query(
+      `SELECT c.name AS category_name, e.name AS assigned_to_name, e.employee_code AS assigned_to_code, e.email AS assigned_to_email
+       FROM assets a
+       JOIN categories c ON c.id = a.category_id
+       LEFT JOIN employees e ON e.id = a.assigned_to_employee_id
+       WHERE a.id = $1`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+
+    const updatedRecord = formatAssetRow({
+      ...updatedRes.rows[0],
+      category_name: joinedRes.rows[0]?.category_name,
+      assigned_to_name: joinedRes.rows[0]?.assigned_to_name,
+      assigned_to_code: joinedRes.rows[0]?.assigned_to_code,
+      assigned_to_email: joinedRes.rows[0]?.assigned_to_email,
+    });
+
+    return success(
+      res,
+      { asset: updatedRecord },
+      `Asset status successfully updated to '${targetStatus}'`
+    );
+  } catch (err) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    return handleDatabaseError(err, res, 'Failed to update asset status');
+  } finally {
+    if (client) client.release();
+  }
+}
+
 export default {
   getAssets,
   getAssetById,
   createAsset,
   updateAsset,
+  updateAssetStatus,
   deleteAsset,
 };

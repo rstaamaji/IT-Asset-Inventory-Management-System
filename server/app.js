@@ -3,6 +3,7 @@ import healthRoutes from './routes/health.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import employeeRoutes from './routes/employeeRoutes.js';
 import assetRoutes from './routes/assetRoutes.js';
+import assignmentRoutes from './routes/assignmentRoutes.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -22,6 +23,7 @@ app.get('/', (req, res) => {
       '/api/categories',
       '/api/employees',
       '/api/assets',
+      '/api/assignments',
     ],
   });
 });
@@ -31,6 +33,7 @@ app.use('/api', healthRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/assets', assetRoutes);
+app.use('/api/assignments', assignmentRoutes);
 
 // Fallback 404 handler for unmatched routes
 app.use(notFoundHandler);
