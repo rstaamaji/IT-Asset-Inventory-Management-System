@@ -7,6 +7,7 @@ import AssetCategoryIcon from './AssetCategoryIcon';
  */
 export default function ReturnAssetModal({ isOpen, assignment, asset, employee, onConfirmReturn, onClose }) {
   const [returnedDate, setReturnedDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [returnStatus, setReturnStatus] = useState('Returned');
   const [returnNotes, setReturnNotes] = useState('');
   const [error, setError] = useState('');
 
@@ -29,6 +30,7 @@ export default function ReturnAssetModal({ isOpen, assignment, asset, employee, 
       assignmentId: assignment.id,
       returnedDate,
       returnNotes: returnNotes.trim(),
+      returnStatus,
     });
   };
 
@@ -128,6 +130,72 @@ export default function ReturnAssetModal({ isOpen, assignment, asset, employee, 
               {error && <span className="form-error">{error}</span>}
             </div>
 
+            {/* Return Destination Status Selection */}
+            <div className="form-group">
+              <label className="form-label">
+                Post-Return Inventory Status <span className="form-required">*</span>
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-2)' }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 'var(--space-2)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${returnStatus === 'Returned' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    backgroundColor: returnStatus === 'Returned' ? 'var(--color-accent-light)' : 'var(--color-surface)',
+                    cursor: 'pointer',
+                    fontSize: 'var(--text-xs)',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="returnStatus"
+                    value="Returned"
+                    checked={returnStatus === 'Returned'}
+                    onChange={(e) => setReturnStatus(e.target.value)}
+                    style={{ marginTop: 2 }}
+                  />
+                  <div>
+                    <span style={{ fontWeight: 'var(--font-semibold)' }}>Returned</span>
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>
+                      Pending inspection / testing before stocking
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 'var(--space-2)',
+                    padding: 'var(--space-2) var(--space-3)',
+                    borderRadius: 'var(--radius-md)',
+                    border: `1px solid ${returnStatus === 'In Stock' ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    backgroundColor: returnStatus === 'In Stock' ? 'var(--color-accent-light)' : 'var(--color-surface)',
+                    cursor: 'pointer',
+                    fontSize: 'var(--text-xs)',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="returnStatus"
+                    value="In Stock"
+                    checked={returnStatus === 'In Stock'}
+                    onChange={(e) => setReturnStatus(e.target.value)}
+                    style={{ marginTop: 2 }}
+                  />
+                  <div>
+                    <span style={{ fontWeight: 'var(--font-semibold)' }}>In Stock</span>
+                    <div style={{ color: 'var(--color-text-muted)', fontSize: '11px' }}>
+                      Immediately available for new deployment
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
             {/* Condition / Return Notes */}
             <div className="form-group">
               <label className="form-label" htmlFor="returnNotes">
@@ -153,7 +221,7 @@ export default function ReturnAssetModal({ isOpen, assignment, asset, employee, 
                 color: 'var(--color-status-info)',
               }}
             >
-              Confirming this return will automatically transition the asset status to <strong>In Stock</strong> and remove active custodian allocation.
+              Confirming this return will conclude active custodian custody and transition asset status to <strong>{returnStatus}</strong>.
             </div>
           </div>
 

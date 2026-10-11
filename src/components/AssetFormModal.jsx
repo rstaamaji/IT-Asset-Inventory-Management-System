@@ -42,12 +42,16 @@ function getInitialFormState(initialData) {
  * Internal form content component
  * Keyed by asset ID / 'create' to initialize state purely upon mount
  */
-function AssetFormContent({ initialData, categories = [], onSave, onClose }) {
+function AssetFormContent({ initialData, categories = [], hasActiveAssignment = false, onSave, onClose }) {
   const isEdit = Boolean(initialData && initialData.id);
+  const isCurrentlyDisposed = isEdit && initialData.status === 'Disposed';
   const [formData, setFormData] = useState(() => getInitialFormState(initialData));
+  const [statusChangeReason, setStatusChangeReason] = useState('');
+  const [disposalConfirmed, setDisposalConfirmed] = useState(false);
   const [errors, setErrors] = useState({});
 
   const categoryList = categories.length > 0 ? categories.map((c) => c.name || c) : ASSET_CATEGORIES;
+  const isStatusChanged = isEdit && formData.status !== initialData.status;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -87,6 +91,17 @@ function AssetFormContent({ initialData, categories = [], onSave, onClose }) {
 
     if (!formData.status) {
       newErrors.status = 'Please select a lifecycle status';
+    } else if (hasActiveAssignment && (formData.status === 'In Stock' || formData.status === 'Disposed')) {
+      newErrors.status = `Cannot set status to ${formData.status} while an active assignment exists. Conclude assignment first.`;
+    }
+
+    if (formData.status === 'Disposed' && (!isEdit || initialData.status !== 'Disposed')) {
+      if (!disposalConfirmed) {
+        newErrors.disposal = 'Please check the confirmation box to authorize permanent disposal.';
+      }
+      if (!statusChangeReason.trim()) {
+        newErrors.statusReason = 'Justification reason is required when decommissioning to Disposed.';
+      }
     }
 
     if (formData.purchasePrice && isNaN(Number(formData.purchasePrice))) {
@@ -128,9 +143,10 @@ function AssetFormContent({ initialData, categories = [], onSave, onClose }) {
             email: `${formData.assignedName.trim().toLowerCase().replace(/\s+/g, '.')}@company.internal`,
           }
         : null,
+      statusHistory: initialData?.statusHistory || [],
     };
 
-    onSave(payload);
+    onSave(payload, statusChangeReason.trim());
   };
 
   return (
@@ -243,18 +259,75 @@ function AssetFormContent({ initialData, categories = [], onSave, onClose }) {
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
+                disabled={isCurrentlyDisposed}
                 className={`select-control ${errors.status ? 'has-error' : ''}`}
                 style={{ width: '100%' }}
               >
-                {ASSET_STATUSES.map((st) => (
-                  <option key={st} value={st}>
-                    {st}
-                  </option>
-                ))}
+                {ASSET_STATUSES.map((st) => {
+                  const isBlocked = hasActiveAssignment && (st === 'In Stock' || st === 'Disposed');
+                  return (
+                    <option key={st} value={st} disabled={isBlocked}>
+                      {st} {isBlocked ? '(Blocked: Active Assignment)' : ''}
+                    </option>
+                  );
+                })}
               </select>
+              {isCurrentlyDisposed && (
+                <span className="form-helper" style={{ color: 'var(--color-status-danger)' }}>
+                  Disposed is a terminal state. Decommissioned assets cannot be reactivated.
+                </span>
+              )}
               {errors.status && <span className="form-error">{errors.status}</span>}
             </div>
           </div>
+
+          {/* Conditional Status Transition Reason and Consequential Warning */}
+          {isStatusChanged && (
+            <div
+              style={{
+                padding: 'var(--space-3) var(--space-4)',
+                backgroundColor: formData.status === 'Disposed' ? 'var(--color-status-danger-bg)' : 'var(--color-surface-alt)',
+                border: `1px solid ${formData.status === 'Disposed' ? '#fecaca' : 'var(--color-border)'}`,
+                borderRadius: 'var(--radius-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-2)',
+              }}
+            >
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" htmlFor="statusChangeReason">
+                  Status Change Justification {formData.status === 'Disposed' && <span className="form-required">*</span>}
+                </label>
+                <input
+                  id="statusChangeReason"
+                  type="text"
+                  placeholder="e.g. Unit returned from employee; sent for maintenance inspection..."
+                  value={statusChangeReason}
+                  onChange={(e) => {
+                    setStatusChangeReason(e.target.value);
+                    if (errors.statusReason) setErrors((prev) => ({ ...prev, statusReason: null }));
+                  }}
+                  className={`form-input ${errors.statusReason ? 'has-error' : ''}`}
+                />
+                {errors.statusReason && <span className="form-error">{errors.statusReason}</span>}
+              </div>
+
+              {formData.status === 'Disposed' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', fontSize: 'var(--text-xs)', color: 'var(--color-status-danger)', cursor: 'pointer', fontWeight: 'var(--font-medium)' }}>
+                  <input
+                    type="checkbox"
+                    checked={disposalConfirmed}
+                    onChange={(e) => {
+                      setDisposalConfirmed(e.target.checked);
+                      if (errors.disposal) setErrors((prev) => ({ ...prev, disposal: null }));
+                    }}
+                  />
+                  <span>I authorize permanent decommissioning for this hardware (Terminal).</span>
+                </label>
+              )}
+              {errors.disposal && <span className="form-error">{errors.disposal}</span>}
+            </div>
+          )}
 
           {/* Row 3: Brand & Model */}
           <div className="form-grid-2">
@@ -434,7 +507,7 @@ function AssetFormContent({ initialData, categories = [], onSave, onClose }) {
  * Main AssetFormModal wrapper
  * Mounts AssetFormContent keyed by initialData ID to preserve purity without useEffect state mutations
  */
-export default function AssetFormModal({ isOpen, initialData, categories = [], onSave, onClose }) {
+export default function AssetFormModal({ isOpen, initialData, categories = [], hasActiveAssignment = false, onSave, onClose }) {
   if (!isOpen) return null;
 
   const key = initialData?.id ? `edit-${initialData.id}` : 'create-new';
@@ -445,6 +518,7 @@ export default function AssetFormModal({ isOpen, initialData, categories = [], o
         key={key}
         initialData={initialData}
         categories={categories}
+        hasActiveAssignment={hasActiveAssignment}
         onSave={onSave}
         onClose={onClose}
       />

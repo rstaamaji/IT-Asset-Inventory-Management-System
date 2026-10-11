@@ -129,10 +129,10 @@ export default function Assignments() {
     setReturnContext({ assignment, asset, employee });
   };
 
-  const handleReturnSubmit = ({ assignmentId, returnedDate, returnNotes }) => {
-    const result = returnAsset({ assignmentId, returnedDate, returnNotes });
+  const handleReturnSubmit = ({ assignmentId, returnedDate, returnNotes, returnStatus }) => {
+    const result = returnAsset({ assignmentId, returnedDate, returnNotes, returnStatus });
     if (result.success) {
-      showNotification('Equipment return completed. Asset transitioned back to In Stock.');
+      showNotification(`Equipment return completed. Asset transitioned to ${returnStatus || 'Returned'}.`);
       setReturnContext(null);
     } else {
       alert(result.error || 'Failed to complete return.');

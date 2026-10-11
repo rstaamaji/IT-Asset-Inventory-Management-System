@@ -1,57 +1,196 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AssetStatusBadge from './AssetStatusBadge';
 import AssetCategoryIcon from './AssetCategoryIcon';
 
 /**
- * Valid lifecycle transitions mapping
+ * Enforces valid lifecycle transitions according to enterprise asset management rules:
+ * - New available asset -> In Stock
+ * - Assigning an asset -> Assigned
+ * - Active use -> In Use
+ * - Returning an asset -> Returned and then available In Stock when appropriate
+ * - Repair -> In Repair
+ * - Repaired asset -> In Stock only if it has no active assignment
+ * - Disposal -> Disposed only when no active assignment exists
+ * - Disposed is terminal (no transitions allowed)
  */
-const VALID_TRANSITIONS = {
-  'In Stock': [
-    { status: 'Assigned', label: 'Assigned', desc: 'Reserve or assign asset to an employee custodian' },
-    { status: 'In Repair', label: 'In Repair', desc: 'Send unit to maintenance or service depot for repair' },
-    { status: 'Disposed', label: 'Disposed', desc: 'Permanently decommission asset for e-waste or retirement' },
-  ],
-  'Assigned': [
-    { status: 'In Use', label: 'In Use', desc: 'Employee has received and commenced active usage' },
-    { status: 'Returned', label: 'Returned', desc: 'Asset turned in by employee to IT collection pool' },
-    { status: 'In Stock', label: 'In Stock', desc: 'Cancel assignment and return directly to available inventory' },
-    { status: 'In Repair', label: 'In Repair', desc: 'Damaged or defective unit flagged for service repair' },
-    { status: 'Disposed', label: 'Disposed', desc: 'Decommission or write-off lost/broken equipment' },
-  ],
-  'In Use': [
-    { status: 'Returned', label: 'Returned', desc: 'Employee finished usage and returned unit to IT pool' },
-    { status: 'In Repair', label: 'In Repair', desc: 'Unit encountered fault and requires diagnostic repair' },
-    { status: 'Disposed', label: 'Disposed', desc: 'Decommission broken or end-of-life equipment' },
-  ],
-  'In Repair': [
-    { status: 'In Stock', label: 'In Stock', desc: 'Repair successfully completed; returned to inventory' },
-    { status: 'Disposed', label: 'Disposed', desc: 'Unit irreparable or uneconomical to repair; salvage/e-waste' },
-  ],
-  'Returned': [
-    { status: 'In Stock', label: 'In Stock', desc: 'Inspected and certified ready for re-assignment' },
-    { status: 'In Repair', label: 'In Repair', desc: 'Post-return inspection revealed faults requiring repair' },
-    { status: 'Disposed', label: 'Disposed', desc: 'End-of-life unit decommissioned after return' },
-  ],
-  'Disposed': [], // Terminal state
-};
+function getValidTransitions(currentStatus, hasActiveAssignment = false) {
+  switch (currentStatus) {
+    case 'In Stock':
+      return [
+        {
+          status: 'Assigned',
+          label: 'Assigned',
+          desc: 'Allocate equipment to an employee custodian.',
+          consequential: false,
+        },
+        {
+          status: 'In Repair',
+          label: 'In Repair',
+          desc: 'Send hardware to maintenance or service depot for repair.',
+          consequential: false,
+        },
+        {
+          status: 'Disposed',
+          label: 'Disposed',
+          desc: 'Permanently decommission asset for e-waste or retirement.',
+          consequential: true,
+          danger: true,
+        },
+      ];
 
-export default function AssetStatusTransitionModal({ isOpen, asset, onTransition, onClose }) {
+    case 'Assigned':
+      return [
+        {
+          status: 'In Use',
+          label: 'In Use',
+          desc: 'Employee has received equipment and commenced active operations.',
+          consequential: false,
+        },
+        {
+          status: 'Returned',
+          label: 'Returned',
+          desc: 'Check-in equipment from employee and conclude active custody.',
+          consequential: true,
+        },
+        {
+          status: 'In Repair',
+          label: 'In Repair',
+          desc: 'Hardware encountered issues; flag for service depot inspection.',
+          consequential: false,
+        },
+      ];
+
+    case 'In Use':
+      return [
+        {
+          status: 'Assigned',
+          label: 'Assigned (Standby)',
+          desc: 'Place active deployment on temporary operational standby.',
+          consequential: false,
+        },
+        {
+          status: 'Returned',
+          label: 'Returned',
+          desc: 'Check-in equipment from employee and conclude active custody.',
+          consequential: true,
+        },
+        {
+          status: 'In Repair',
+          label: 'In Repair',
+          desc: 'Hardware failure or defect reported; send for diagnosis/repair.',
+          consequential: false,
+        },
+      ];
+
+    case 'Returned':
+      return [
+        {
+          status: 'In Stock',
+          label: 'In Stock',
+          desc: 'Post-return inspection passed; certify ready for inventory stock.',
+          consequential: false,
+        },
+        {
+          status: 'In Repair',
+          label: 'In Repair',
+          desc: 'Post-return inspection revealed faults requiring servicing.',
+          consequential: false,
+        },
+        {
+          status: 'Disposed',
+          label: 'Disposed',
+          desc: 'Unit reached end-of-life or damaged beyond economic repair.',
+          consequential: true,
+          danger: true,
+        },
+        {
+          status: 'Assigned',
+          label: 'Assigned',
+          desc: 'Immediately re-assign equipment to another custodian.',
+          consequential: false,
+        },
+      ];
+
+    case 'In Repair': {
+      const options = [];
+      if (!hasActiveAssignment) {
+        options.push({
+          status: 'In Stock',
+          label: 'In Stock',
+          desc: 'Repair successfully completed; returned to available stock pool.',
+          consequential: false,
+        });
+        options.push({
+          status: 'Disposed',
+          label: 'Disposed',
+          desc: 'Hardware unrepairable or uneconomic to fix; salvage or e-waste.',
+          consequential: true,
+          danger: true,
+        });
+      } else {
+        options.push({
+          status: 'In Use',
+          label: 'In Use',
+          desc: 'Repair completed; returned to assigned employee for active use.',
+          consequential: false,
+        });
+        options.push({
+          status: 'Returned',
+          label: 'Returned',
+          desc: 'Check-in unit from employee custody while in maintenance.',
+          consequential: true,
+        });
+      }
+      return options;
+    }
+
+    case 'Disposed':
+    default:
+      return [];
+  }
+}
+
+export default function AssetStatusTransitionModal({
+  isOpen,
+  asset,
+  hasActiveAssignment = false,
+  onTransition,
+  onClose,
+}) {
   const currentStatus = asset?.status || '';
-  const allowedNextStatuses = VALID_TRANSITIONS[currentStatus] || [];
+  const allowedNextStatuses = useMemo(
+    () => getValidTransitions(currentStatus, hasActiveAssignment),
+    [currentStatus, hasActiveAssignment]
+  );
   const isTerminal = currentStatus === 'Disposed';
 
   const [selectedStatus, setSelectedStatus] = useState(allowedNextStatuses[0]?.status || '');
   const [reason, setReason] = useState('');
+  const [disposalConfirmed, setDisposalConfirmed] = useState(false);
   const [error, setError] = useState('');
 
   if (!isOpen || !asset) return null;
+
+  const activeOption = allowedNextStatuses.find((opt) => opt.status === selectedStatus);
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
     if (!selectedStatus) {
-      setError('Please select a target status');
+      setError('Please select a target lifecycle status.');
       return;
+    }
+
+    // Require confirmation and mandatory reason for Disposed
+    if (selectedStatus === 'Disposed') {
+      if (!disposalConfirmed) {
+        setError('Please check the confirmation box to authorize permanent disposal.');
+        return;
+      }
+      if (!reason.trim()) {
+        setError('Disposal justification reason is required for compliance audit trails.');
+        return;
+      }
     }
 
     onTransition(asset.id, selectedStatus, reason.trim());
@@ -59,7 +198,7 @@ export default function AssetStatusTransitionModal({ isOpen, asset, onTransition
 
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="detail-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540 }}>
+      <div className="detail-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
         {/* Header */}
         <div className="detail-modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
@@ -85,7 +224,7 @@ export default function AssetStatusTransitionModal({ isOpen, asset, onTransition
                 Asset Lifecycle Transition
               </div>
               <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                Advance asset through standardized IT lifecycle stages
+                Advance hardware through standardized enterprise lifecycle states
               </div>
             </div>
           </div>
@@ -132,6 +271,30 @@ export default function AssetStatusTransitionModal({ isOpen, asset, onTransition
               </div>
             </div>
 
+            {/* Active Assignment Warning Notice if applicable */}
+            {hasActiveAssignment && currentStatus !== 'In Repair' && (
+              <div
+                style={{
+                  padding: 'var(--space-3) var(--space-4)',
+                  backgroundColor: 'var(--color-status-info-bg)',
+                  border: '1px solid #bae6fd',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--color-status-info)',
+                  fontSize: 'var(--text-xs)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)',
+                }}
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16" style={{ flexShrink: 0 }}>
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <span>
+                  Asset has an active assignment to <strong>{asset.assignedTo?.name || 'an employee'}</strong>. Direct transitions to In Stock or Disposed are restricted until returned.
+                </span>
+              </div>
+            )}
+
             {isTerminal ? (
               <div
                 style={{
@@ -143,7 +306,7 @@ export default function AssetStatusTransitionModal({ isOpen, asset, onTransition
                   fontSize: 'var(--text-sm)',
                 }}
               >
-                This asset is in the terminal <strong>Disposed</strong> state. It has been permanently decommissioned and cannot transition to active states.
+                This asset is in the terminal <strong>Disposed</strong> state. It has been permanently decommissioned and cannot transition back to active lifecycle states.
               </div>
             ) : allowedNextStatuses.length === 0 ? (
               <div
@@ -165,66 +328,146 @@ export default function AssetStatusTransitionModal({ isOpen, asset, onTransition
                     Allowed Target Lifecycle Status <span className="form-required">*</span>
                   </label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-                    {allowedNextStatuses.map((opt) => (
-                      <label
-                        key={opt.status}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: 'var(--space-3)',
-                          padding: 'var(--space-3)',
-                          borderRadius: 'var(--radius-md)',
-                          border: `1px solid ${selectedStatus === opt.status ? 'var(--color-accent)' : 'var(--color-border)'}`,
-                          backgroundColor: selectedStatus === opt.status ? 'var(--color-accent-light)' : 'var(--color-surface)',
-                          cursor: 'pointer',
-                          transition: 'all var(--transition-fast)',
-                        }}
-                      >
-                        <input
-                          type="radio"
-                          name="targetStatus"
-                          value={opt.status}
-                          checked={selectedStatus === opt.status}
-                          onChange={(e) => {
-                            setSelectedStatus(e.target.value);
-                            setError('');
+                    {allowedNextStatuses.map((opt) => {
+                      const isSelected = selectedStatus === opt.status;
+                      return (
+                        <label
+                          key={opt.status}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 'var(--space-3)',
+                            padding: 'var(--space-3)',
+                            borderRadius: 'var(--radius-md)',
+                            border: `1px solid ${
+                              isSelected
+                                ? opt.danger
+                                  ? 'var(--color-status-danger)'
+                                  : 'var(--color-accent)'
+                                : 'var(--color-border)'
+                            }`,
+                            backgroundColor: isSelected
+                              ? opt.danger
+                                ? 'var(--color-status-danger-bg)'
+                                : 'var(--color-accent-light)'
+                              : 'var(--color-surface)',
+                            cursor: 'pointer',
+                            transition: 'all var(--transition-fast)',
                           }}
-                          style={{ marginTop: 3 }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                            <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)' }}>
-                              {opt.label}
-                            </span>
-                            <AssetStatusBadge status={opt.status} />
+                        >
+                          <input
+                            type="radio"
+                            name="targetStatus"
+                            value={opt.status}
+                            checked={isSelected}
+                            onChange={(e) => {
+                              setSelectedStatus(e.target.value);
+                              setError('');
+                            }}
+                            style={{ marginTop: 3 }}
+                          />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                              <span style={{ fontWeight: 'var(--font-semibold)', fontSize: 'var(--text-sm)' }}>
+                                {opt.label}
+                              </span>
+                              <AssetStatusBadge status={opt.status} />
+                              {opt.consequential && (
+                                <span
+                                  style={{
+                                    fontSize: '10px',
+                                    fontWeight: 'var(--font-bold)',
+                                    textTransform: 'uppercase',
+                                    color: opt.danger ? 'var(--color-status-danger)' : 'var(--color-text-muted)',
+                                    letterSpacing: '0.04em',
+                                  }}
+                                >
+                                  {opt.danger ? '• Terminal' : '• Action'}
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                              {opt.desc}
+                            </div>
                           </div>
-                          <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                            {opt.desc}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
+                        </label>
+                      );
+                    })}
                   </div>
-                  {error && <span className="form-error">{error}</span>}
                 </div>
+
+                {/* Consequential Transition Warning & Confirmation Checkbox */}
+                {activeOption?.danger && (
+                  <div
+                    style={{
+                      padding: 'var(--space-3) var(--space-4)',
+                      backgroundColor: 'var(--color-status-danger-bg)',
+                      border: '1px solid #fecaca',
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--color-status-danger)',
+                      fontSize: 'var(--text-xs)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 'var(--space-2)',
+                    }}
+                  >
+                    <div style={{ fontWeight: 'var(--font-bold)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                      <span>⚠️ Consequential Action: Irreversible Decommissioning</span>
+                    </div>
+                    <div>
+                      Disposal is a terminal state. Once confirmed, this hardware cannot be returned to active inventory, reassigned, or edited.
+                    </div>
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-2)',
+                        cursor: 'pointer',
+                        marginTop: 'var(--space-1)',
+                        fontWeight: 'var(--font-medium)',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={disposalConfirmed}
+                        onChange={(e) => {
+                          setDisposalConfirmed(e.target.checked);
+                          if (error) setError('');
+                        }}
+                      />
+                      <span>I confirm this asset is decommissioned and authorize permanent disposal.</span>
+                    </label>
+                  </div>
+                )}
 
                 {/* Reason / Notes */}
                 <div className="form-group">
                   <label className="form-label" htmlFor="transReason">
-                    Transition Justification / Notes
+                    Transition Reason &amp; Audit Notes {selectedStatus === 'Disposed' && <span className="form-required">*</span>}
                   </label>
                   <textarea
                     id="transReason"
-                    placeholder="e.g. Returned from employee upon departure; inspected and cleaned for stock deployment..."
+                    placeholder={
+                      selectedStatus === 'Disposed'
+                        ? 'e.g. Obsolete hardware beyond repair; battery swelling; recycled per e-waste protocol...'
+                        : selectedStatus === 'Returned'
+                        ? 'e.g. Employee completed project; unit cleaned and turned into IT pool...'
+                        : 'e.g. Routine maintenance scheduled; diagnostic inspection passed...'
+                    }
                     value={reason}
-                    onChange={(e) => setReason(e.target.value)}
+                    onChange={(e) => {
+                      setReason(e.target.value);
+                      if (error) setError('');
+                    }}
                     rows={2}
-                    className="form-input form-textarea"
+                    className={`form-input form-textarea ${error && !reason.trim() && selectedStatus === 'Disposed' ? 'has-error' : ''}`}
                   />
                   <span className="form-helper">
-                    Documenting status changes ensures accurate audit logs and warranty tracking.
+                    Recorded in persistent status history for compliance, warranty, and lifecycle auditing.
                   </span>
                 </div>
+
+                {error && <div className="form-error" style={{ marginTop: 'var(--space-1)' }}>{error}</div>}
               </>
             )}
           </div>
@@ -235,8 +478,12 @@ export default function AssetStatusTransitionModal({ isOpen, asset, onTransition
               Cancel
             </button>
             {!isTerminal && allowedNextStatuses.length > 0 && (
-              <button type="submit" className="btn btn-primary btn-sm">
-                Apply Transition
+              <button
+                type="submit"
+                className={`btn btn-sm ${activeOption?.danger ? 'btn-danger' : 'btn-primary'}`}
+                style={activeOption?.danger ? { backgroundColor: 'var(--color-status-danger)', borderColor: 'var(--color-status-danger)', color: '#fff' } : {}}
+              >
+                {selectedStatus === 'Disposed' ? 'Confirm Disposal' : 'Apply Transition'}
               </button>
             )}
           </div>

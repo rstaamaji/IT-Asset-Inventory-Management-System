@@ -8,7 +8,15 @@ import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import AssetStatusTransitionModal from '../components/AssetStatusTransitionModal';
 
 export default function Assets() {
-  const { assets, categories, addAsset, updateAsset, deleteAsset, transitionAssetStatus } = useApp();
+  const {
+    assets,
+    categories,
+    assignments,
+    addAsset,
+    updateAsset,
+    deleteAsset,
+    transitionAssetStatus,
+  } = useApp();
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -101,12 +109,12 @@ export default function Assets() {
     setIsFormOpen(true);
   };
 
-  const handleSaveAsset = (assetData) => {
+  const handleSaveAsset = (assetData, statusChangeReason = '') => {
     const exists = assets.some((a) => a.id === assetData.id);
 
     if (exists) {
       // UPDATE
-      updateAsset(assetData);
+      updateAsset(assetData, statusChangeReason);
       showNotification(`Asset ${assetData.assetCode} successfully updated.`);
     } else {
       // CREATE
@@ -372,6 +380,10 @@ export default function Assets() {
         <AssetDetailModal
           asset={viewingAsset}
           onClose={() => setViewingAsset(null)}
+          onOpenStatusTransition={(asset) => {
+            setViewingAsset(null);
+            setAssetToTransition(asset);
+          }}
         />
       )}
 
@@ -380,6 +392,10 @@ export default function Assets() {
         isOpen={isFormOpen}
         initialData={editingAsset}
         categories={categories}
+        hasActiveAssignment={Boolean(
+          editingAsset &&
+            assignments.some((a) => a.assetId === editingAsset.id && a.status === 'Active')
+        )}
         onSave={handleSaveAsset}
         onClose={() => {
           setIsFormOpen(false);
@@ -401,6 +417,10 @@ export default function Assets() {
         <AssetStatusTransitionModal
           isOpen={Boolean(assetToTransition)}
           asset={assetToTransition}
+          hasActiveAssignment={Boolean(
+            assetToTransition &&
+              assignments.some((a) => a.assetId === assetToTransition.id && a.status === 'Active')
+          )}
           onTransition={handleTransitionSubmit}
           onClose={() => setAssetToTransition(null)}
         />

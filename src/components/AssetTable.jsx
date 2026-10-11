@@ -179,6 +179,18 @@ export default function AssetTable({ assets, onViewAsset, onEditAsset, onDeleteA
                   >
                     View
                   </button>
+                  {onTransitionStatus && asset.status !== 'Disposed' && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => onTransitionStatus(asset)}
+                      title={`Change status for ${asset.assetCode}`}
+                      aria-label={`Change status for ${asset.assetCode}`}
+                      style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }}
+                    >
+                      Status
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"

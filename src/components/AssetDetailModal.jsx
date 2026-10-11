@@ -112,7 +112,7 @@ function getAssetTimeline(asset) {
  * 4. STATUS: Current Asset Status, Assigned Employee
  * 5. ACTIVITY: Mock activity timeline (registered, assigned, moved, returned, sent to repair)
  */
-export default function AssetDetailModal({ asset, onClose }) {
+export default function AssetDetailModal({ asset, onClose, onOpenStatusTransition }) {
   if (!asset) return null;
 
   const formatCurrency = (val) => {
@@ -124,6 +124,7 @@ export default function AssetDetailModal({ asset, onClose }) {
   };
 
   const timeline = getAssetTimeline(asset);
+  const hasRecordedHistory = Array.isArray(asset.statusHistory) && asset.statusHistory.length > 0;
 
   return (
     <div className="modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
@@ -245,8 +246,19 @@ export default function AssetDetailModal({ asset, onClose }) {
                 <div className="detail-grid">
                   <div className="detail-item">
                     <span className="detail-item-label">Current Asset Status</span>
-                    <div style={{ marginTop: 2 }}>
+                    <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                       <AssetStatusBadge status={asset.status} />
+                      {onOpenStatusTransition && asset.status !== 'Disposed' && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }}
+                          onClick={() => onOpenStatusTransition(asset)}
+                          title="Change asset lifecycle status"
+                        >
+                          Change Status
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="detail-item">
@@ -311,7 +323,7 @@ export default function AssetDetailModal({ asset, onClose }) {
               </div>
             </div>
 
-            {/* Right Column: SECTION 5: ACTIVITY TIMELINE */}
+            {/* Right Column: SECTION 5: ACTIVITY TIMELINE & STATUS HISTORY */}
             <div
               style={{
                 padding: 'var(--space-6)',
@@ -324,22 +336,65 @@ export default function AssetDetailModal({ asset, onClose }) {
                 <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                 </svg>
-                Activity Timeline
+                Lifecycle &amp; Activity History
               </div>
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 <div className="timeline">
-                  {timeline.map((evt) => (
-                    <div key={evt.id} className="timeline-item">
-                      <div className={`timeline-node ${evt.nodeColor}`} />
-                      <div className="timeline-content">
-                        <div className="timeline-header">
-                          <span className="timeline-event-name">{evt.eventName}</span>
-                          <span className="timeline-time">{evt.time}</span>
+                  {hasRecordedHistory ? (
+                    asset.statusHistory.map((item) => {
+                      const nodeColor =
+                        item.newStatus === 'Disposed'
+                          ? 'red'
+                          : item.newStatus === 'In Repair'
+                          ? 'amber'
+                          : item.newStatus === 'Assigned'
+                          ? 'blue'
+                          : item.newStatus === 'In Use' || item.newStatus === 'In Stock'
+                          ? 'green'
+                          : 'gray';
+
+                      const timeFormatted = item.timestamp
+                        ? new Date(item.timestamp).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })
+                        : 'Recorded';
+
+                      return (
+                        <div key={item.id} className="timeline-item">
+                          <div className={`timeline-node ${nodeColor}`} />
+                          <div className="timeline-content">
+                            <div className="timeline-header">
+                              <span className="timeline-event-name">
+                                {item.previousStatus ? `${item.previousStatus} → ${item.newStatus}` : item.newStatus}
+                              </span>
+                              <span className="timeline-time">{timeFormatted}</span>
+                            </div>
+                            <p className="timeline-desc">{item.reason}</p>
+                            {item.actor && (
+                              <span style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+                                By: {item.actor}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <p className="timeline-desc">{evt.description}</p>
+                      );
+                    })
+                  ) : (
+                    timeline.map((evt) => (
+                      <div key={evt.id} className="timeline-item">
+                        <div className={`timeline-node ${evt.nodeColor}`} />
+                        <div className="timeline-content">
+                          <div className="timeline-header">
+                            <span className="timeline-event-name">{evt.eventName}</span>
+                            <span className="timeline-time">{evt.time}</span>
+                          </div>
+                          <p className="timeline-desc">{evt.description}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -360,7 +415,7 @@ export default function AssetDetailModal({ asset, onClose }) {
                 <svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13" style={{ flexShrink: 0 }}>
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
-                <span>Automated audit trail generated from IT operations.</span>
+                <span>Audit trail synchronized with lifecycle transitions.</span>
               </div>
             </div>
           </div>
@@ -371,6 +426,15 @@ export default function AssetDetailModal({ asset, onClose }) {
           <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
             Close
           </button>
+          {onOpenStatusTransition && asset.status !== 'Disposed' && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onOpenStatusTransition(asset)}
+            >
+              Change Status
+            </button>
+          )}
         </div>
       </div>
     </div>
