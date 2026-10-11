@@ -33,6 +33,8 @@ describe('1. API Foundation & Root Endpoints', () => {
     assert.ok(body.endpoints.includes('/api/assets'));
     assert.ok(body.endpoints.includes('/api/categories'));
     assert.ok(body.endpoints.includes('/api/employees'));
+    assert.ok(body.endpoints.includes('/api/assignments'));
+    assert.ok(body.endpoints.includes('/api/dashboard/stats'));
   });
 
   test('GET /unknown-path returns standard 404 response', async () => {

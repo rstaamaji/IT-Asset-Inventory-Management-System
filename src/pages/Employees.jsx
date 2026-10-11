@@ -92,14 +92,22 @@ export default function Employees() {
     setIsFormOpen(true);
   };
 
-  const handleSaveEmployee = (empData) => {
+  const handleSaveEmployee = async (empData) => {
     const exists = employees.some((e) => e.id === empData.id);
 
     if (exists) {
-      updateEmployee(empData);
+      const res = await updateEmployee(empData);
+      if (res && res.success === false) {
+        alert(res.error || 'Failed to update employee');
+        return;
+      }
       showNotification(`Employee ${empData.name} (${empData.employeeCode}) updated.`);
     } else {
-      addEmployee(empData);
+      const res = await addEmployee(empData);
+      if (res && res.success === false) {
+        alert(res.error || 'Failed to create employee');
+        return;
+      }
       showNotification(`Employee ${empData.name} (${empData.employeeCode}) successfully created.`);
     }
 
@@ -111,10 +119,14 @@ export default function Employees() {
     setEmployeeToDelete(emp);
   };
 
-  const handleConfirmDelete = (empId) => {
+  const handleConfirmDelete = async (empId) => {
     const target = employees.find((e) => e.id === empId);
     const heldAssetsCount = getEmployeeAssignedAssets(empId).length;
-    deleteEmployee(empId);
+    const res = await deleteEmployee(empId);
+    if (res && res.success === false) {
+      alert(res.error || 'Failed to delete employee');
+      return;
+    }
     setEmployeeToDelete(null);
     if (target) {
       if (heldAssetsCount > 0) {

@@ -1,4 +1,9 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import assetService from '../services/assetService';
+import categoryService from '../services/categoryService';
+import employeeService from '../services/employeeService';
+import assignmentService from '../services/assignmentService';
+import dashboardService from '../services/dashboardService';
 import { MOCK_ASSETS } from '../data/mockAssets';
 import { MOCK_CATEGORIES } from '../data/mockCategories';
 import { MOCK_EMPLOYEES } from '../data/mockEmployees';
@@ -31,505 +36,430 @@ function saveStorage(key, data) {
   }
 }
 
-/**
- * Creates an immutable status transition history record.
- * Schema: { id, previousStatus, newStatus, timestamp, reason, actor }
- * Note: Actor is null as application has no authenticated user context (do not fabricate actors).
- */
-function createStatusHistoryEntry(previousStatus, newStatus, reason = '', actor = null) {
-  return {
-    id: `sh-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-    previousStatus: previousStatus || null,
-    newStatus,
-    timestamp: new Date().toISOString(),
-    reason: (reason || '').trim() || (previousStatus ? `Status transitioned from ${previousStatus} to ${newStatus}` : `Initial status: ${newStatus}`),
-    actor: actor || null,
-  };
-}
-
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
-  // 1. Initial State from localStorage (or fallback mock data)
-  const [assets, setAssets] = useState(() => {
-    const loaded = loadStorage(STORAGE_KEYS.ASSETS, MOCK_ASSETS);
-    return loaded.map((a) => ({
-      ...a,
-      statusHistory: Array.isArray(a.statusHistory) && a.statusHistory.length > 0
-        ? a.statusHistory
-        : [
-            {
-              id: `sh-init-${a.id}`,
-              previousStatus: null,
-              newStatus: a.status || 'In Stock',
-              timestamp: a.purchaseDate ? `${a.purchaseDate}T09:00:00.000Z` : new Date().toISOString(),
-              reason: 'Initial hardware inventory intake and cataloging',
-              actor: null,
-            },
-          ],
-    }));
-  });
-  const [categories, setCategories] = useState(() => loadStorage(STORAGE_KEYS.CATEGORIES, MOCK_CATEGORIES));
-  const [employees, setEmployees] = useState(() => loadStorage(STORAGE_KEYS.EMPLOYEES, MOCK_EMPLOYEES));
-  const [assignments, setAssignments] = useState(() => loadStorage(STORAGE_KEYS.ASSIGNMENTS, MOCK_ASSIGNMENTS));
+  // 1. Connection & Loading Status
+  const [connectionStatus, setConnectionStatus] = useState('connecting'); // 'connecting' | 'connected' | 'offline'
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [dashboardStats, setDashboardStats] = useState(null);
 
-  // 2. Persist state changes
-  useEffect(() => {
-    saveStorage(STORAGE_KEYS.ASSETS, assets);
-  }, [assets]);
+  // 2. Core domain datasets
+  const [assets, setAssets] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [assignments, setAssignments] = useState([]);
 
-  useEffect(() => {
-    saveStorage(STORAGE_KEYS.CATEGORIES, categories);
-  }, [categories]);
+  /**
+   * Load authoritative server dataset from backend APIs.
+   * If server is unreachable, explicitly enters 'offline' state and uses isolated local preview.
+   */
+  const loadServerData = useCallback(async (isInitial = false) => {
+    if (!isInitial) {
+      setIsLoading(true);
+      setError(null);
+    }
+    try {
+      const [catsRes, empsRes, astsRes, asgsRes, statsRes] = await Promise.all([
+        categoryService.getCategories(),
+        employeeService.getEmployees({ limit: 100 }),
+        assetService.getAssets({ limit: 100 }),
+        assignmentService.getAssignments({ limit: 100 }),
+        dashboardService.getStats().catch(() => null),
+      ]);
 
-  useEffect(() => {
-    saveStorage(STORAGE_KEYS.EMPLOYEES, employees);
-  }, [employees]);
+      setCategories(catsRes.categories || []);
+      setEmployees(empsRes.employees || []);
+      setAssets(astsRes.assets || []);
+      setAssignments(asgsRes.assignments || []);
+      if (statsRes) setDashboardStats(statsRes);
 
+      setConnectionStatus('connected');
+      setError(null);
+    } catch (err) {
+      console.warn('[AppContext] API Server offline or unreachable:', err.message);
+      setConnectionStatus('offline');
+      setError(err.message || 'Unable to connect to live backend API');
+
+      // Development fallback: Read local storage cache for offline viewing only
+      // Notice: we do NOT mark this as live server data and we do NOT overwrite server data!
+      const fallbackAssets = loadStorage(STORAGE_KEYS.ASSETS, MOCK_ASSETS);
+      const fallbackCategories = loadStorage(STORAGE_KEYS.CATEGORIES, MOCK_CATEGORIES);
+      const fallbackEmployees = loadStorage(STORAGE_KEYS.EMPLOYEES, MOCK_EMPLOYEES);
+      const fallbackAssignments = loadStorage(STORAGE_KEYS.ASSIGNMENTS, MOCK_ASSIGNMENTS);
+
+      setAssets(fallbackAssets);
+      setCategories(fallbackCategories);
+      setEmployees(fallbackEmployees);
+      setAssignments(fallbackAssignments);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial mount load using async effect
   useEffect(() => {
-    saveStorage(STORAGE_KEYS.ASSIGNMENTS, assignments);
-  }, [assignments]);
+    let active = true;
+    (async () => {
+      try {
+        const [catsRes, empsRes, astsRes, asgsRes, statsRes] = await Promise.all([
+          categoryService.getCategories(),
+          employeeService.getEmployees({ limit: 100 }),
+          assetService.getAssets({ limit: 100 }),
+          assignmentService.getAssignments({ limit: 100 }),
+          dashboardService.getStats().catch(() => null),
+        ]);
+
+        if (!active) return;
+        setCategories(catsRes.categories || []);
+        setEmployees(empsRes.employees || []);
+        setAssets(astsRes.assets || []);
+        setAssignments(asgsRes.assignments || []);
+        if (statsRes) setDashboardStats(statsRes);
+        setConnectionStatus('connected');
+        setError(null);
+      } catch (err) {
+        if (!active) return;
+        console.warn('[AppContext] API Server offline or unreachable:', err.message);
+        setConnectionStatus('offline');
+        setError(err.message || 'Unable to connect to live backend API');
+
+        setAssets(loadStorage(STORAGE_KEYS.ASSETS, MOCK_ASSETS));
+        setCategories(loadStorage(STORAGE_KEYS.CATEGORIES, MOCK_CATEGORIES));
+        setEmployees(loadStorage(STORAGE_KEYS.EMPLOYEES, MOCK_EMPLOYEES));
+        setAssignments(loadStorage(STORAGE_KEYS.ASSIGNMENTS, MOCK_ASSIGNMENTS));
+      } finally {
+        if (active) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Persist offline cache only when in offline preview mode (so user edits in offline mode aren't lost)
+  useEffect(() => {
+    if (connectionStatus === 'offline') {
+      if (assets.length > 0) saveStorage(STORAGE_KEYS.ASSETS, assets);
+      if (categories.length > 0) saveStorage(STORAGE_KEYS.CATEGORIES, categories);
+      if (employees.length > 0) saveStorage(STORAGE_KEYS.EMPLOYEES, employees);
+      if (assignments.length > 0) saveStorage(STORAGE_KEYS.ASSIGNMENTS, assignments);
+    }
+  }, [connectionStatus, assets, categories, employees, assignments]);
+
+  /**
+   * Refreshes dependent aggregated data (category asset counts, dashboard statistics)
+   */
+  const syncDependentData = useCallback(async () => {
+    if (connectionStatus !== 'connected') return;
+    try {
+      const [catsRes, statsRes] = await Promise.all([
+        categoryService.getCategories().catch(() => null),
+        dashboardService.getStats().catch(() => null),
+      ]);
+      if (catsRes?.categories) setCategories(catsRes.categories);
+      if (statsRes) setDashboardStats(statsRes);
+    } catch (err) {
+      console.warn('[AppContext] Background sync error:', err.message);
+    }
+  }, [connectionStatus]);
 
   // ==========================================
   // Category Operations
   // ==========================================
-  const addCategory = (categoryData) => {
-    const newCategory = {
-      ...categoryData,
-      id: categoryData.id || `cat-${Date.now()}`,
-      createdAt: categoryData.createdAt || new Date().toISOString().split('T')[0],
-    };
-    setCategories((prev) => [newCategory, ...prev]);
-    return newCategory;
+  const addCategory = async (categoryData) => {
+    try {
+      const created = await categoryService.createCategory(categoryData);
+      setCategories((prev) => [created, ...prev]);
+      return { success: true, category: created };
+    } catch (err) {
+      console.error('[AppContext] Failed to add category:', err);
+      // Offline fallback
+      if (connectionStatus === 'offline') {
+        const localCat = {
+          ...categoryData,
+          id: categoryData.id || `cat-${Date.now()}`,
+          assetCount: 0,
+          createdAt: new Date().toISOString(),
+        };
+        setCategories((prev) => [localCat, ...prev]);
+        return { success: true, category: localCat };
+      }
+      return { success: false, error: err.message };
+    }
   };
 
-  const updateCategory = (categoryData) => {
-    setCategories((prev) => prev.map((c) => (c.id === categoryData.id ? categoryData : c)));
+  const updateCategory = async (categoryData) => {
+    try {
+      const updated = await categoryService.updateCategory(categoryData.id, categoryData);
+      setCategories((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+      return { success: true, category: updated };
+    } catch (err) {
+      console.error('[AppContext] Failed to update category:', err);
+      if (connectionStatus === 'offline') {
+        setCategories((prev) => prev.map((c) => (c.id === categoryData.id ? { ...c, ...categoryData } : c)));
+        return { success: true, category: categoryData };
+      }
+      return { success: false, error: err.message };
+    }
   };
 
-  const deleteCategory = (categoryId) => {
-    setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+  const deleteCategory = async (categoryId) => {
+    try {
+      await categoryService.deleteCategory(categoryId);
+      setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+      return { success: true };
+    } catch (err) {
+      console.error('[AppContext] Failed to delete category:', err);
+      if (connectionStatus === 'offline') {
+        setCategories((prev) => prev.filter((c) => c.id !== categoryId));
+        return { success: true };
+      }
+      return { success: false, error: err.message };
+    }
   };
 
   // ==========================================
   // Employee Operations
   // ==========================================
-  const addEmployee = (employeeData) => {
-    const today = new Date().toISOString().split('T')[0];
-    const newEmployee = {
-      ...employeeData,
-      id: employeeData.id || `emp-${Date.now()}`,
-      joinedDate: employeeData.joinedDate || today,
-      createdAt: employeeData.createdAt || today,
-    };
-    setEmployees((prev) => [newEmployee, ...prev]);
-    return newEmployee;
-  };
-
-  const updateEmployee = (employeeData) => {
-    setEmployees((prev) => prev.map((e) => (e.id === employeeData.id ? { ...e, ...employeeData } : e)));
-
-    // Keep assignedTo snapshot on assets in sync with updated employee details
-    setAssets((prev) =>
-      prev.map((asset) => {
-        if (
-          asset.assignedTo &&
-          (asset.assignedTo.id === employeeData.id ||
-            asset.assignedTo.email === employeeData.email ||
-            asset.assignedTo.name === employeeData.name)
-        ) {
-          return {
-            ...asset,
-            assignedTo: {
-              id: employeeData.id,
-              name: employeeData.name,
-              department: employeeData.department,
-              email: employeeData.email,
-            },
-          };
-        }
-        return asset;
-      })
-    );
-  };
-
-  const deleteEmployee = (employeeId) => {
-    const employee = employees.find((e) => e.id === employeeId);
-    if (!employee) return;
-
-    // Check if employee has active assigned assets
-    const activeAssetIdsFromAssignments = new Set(
-      assignments.filter((asg) => asg.employeeId === employeeId && asg.status === 'Active').map((asg) => asg.assetId)
-    );
-
-    const activeAssets = assets.filter(
-      (a) =>
-        activeAssetIdsFromAssignments.has(a.id) ||
-        (a.assignedTo &&
-          (a.assignedTo.id === employeeId ||
-            a.assignedTo.email === employee.email ||
-            a.assignedTo.name === employee.name))
-    );
-
-    // If active assets exist, release them to 'In Stock' and terminate active assignments
-    if (activeAssets.length > 0) {
-      const activeIds = new Set(activeAssets.map((a) => a.id));
-      setAssets((prev) =>
-        prev.map((a) => {
-          if (activeIds.has(a.id)) {
-            return {
-              ...a,
-              status: 'In Stock',
-              assignedTo: null,
-            };
-          }
-          return a;
-        })
-      );
-
-      // Close active assignments
-      setAssignments((prev) =>
-        prev.map((asg) => {
-          if (asg.employeeId === employeeId && asg.status === 'Active') {
-            return {
-              ...asg,
-              status: 'Returned',
-              returnedDate: new Date().toISOString().split('T')[0],
-              notes: `${asg.notes || ''} (Auto-returned due to employee profile deletion)`.trim(),
-            };
-          }
-          return asg;
-        })
-      );
+  const addEmployee = async (employeeData) => {
+    try {
+      const created = await employeeService.createEmployee(employeeData);
+      setEmployees((prev) => [created, ...prev]);
+      return { success: true, employee: created };
+    } catch (err) {
+      console.error('[AppContext] Failed to add employee:', err);
+      if (connectionStatus === 'offline') {
+        const localEmp = {
+          ...employeeData,
+          id: employeeData.id || `emp-${Date.now()}`,
+          assignedAssetCount: 0,
+          joinedDate: employeeData.joinedDate || new Date().toISOString().split('T')[0],
+        };
+        setEmployees((prev) => [localEmp, ...prev]);
+        return { success: true, employee: localEmp };
+      }
+      return { success: false, error: err.message };
     }
+  };
 
-    setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
+  const updateEmployee = async (employeeData) => {
+    try {
+      const updated = await employeeService.updateEmployee(employeeData.id, employeeData);
+      setEmployees((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+      // Background sync assets assignedTo snapshot
+      syncDependentData();
+      return { success: true, employee: updated };
+    } catch (err) {
+      console.error('[AppContext] Failed to update employee:', err);
+      if (connectionStatus === 'offline') {
+        setEmployees((prev) => prev.map((e) => (e.id === employeeData.id ? { ...e, ...employeeData } : e)));
+        return { success: true, employee: employeeData };
+      }
+      return { success: false, error: err.message };
+    }
+  };
+
+  const deleteEmployee = async (employeeId) => {
+    try {
+      await employeeService.deleteEmployee(employeeId);
+      setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
+      return { success: true };
+    } catch (err) {
+      console.error('[AppContext] Failed to delete employee:', err);
+      if (connectionStatus === 'offline') {
+        setEmployees((prev) => prev.filter((e) => e.id !== employeeId));
+        return { success: true };
+      }
+      return { success: false, error: err.message };
+    }
   };
 
   // ==========================================
   // Asset Operations
   // ==========================================
-  const addAsset = (assetData) => {
-    const status = assetData.status || 'In Stock';
-    const initHistory = createStatusHistoryEntry(
-      null,
-      status,
-      'Initial asset registration and catalog intake',
-      null
-    );
-    const newAsset = {
-      ...assetData,
-      id: assetData.id || `ast-${Date.now()}`,
-      status,
-      statusHistory: [initHistory],
-    };
-    setAssets((prev) => [newAsset, ...prev]);
-    return newAsset;
-  };
-
-  const updateAsset = (assetData, statusChangeReason = '') => {
-    const existing = assets.find((a) => a.id === assetData.id);
-    let updatedHistory = Array.isArray(assetData.statusHistory)
-      ? assetData.statusHistory
-      : existing && Array.isArray(existing.statusHistory)
-      ? existing.statusHistory
-      : [];
-
-    if (existing && existing.status !== assetData.status) {
-      const historyEntry = createStatusHistoryEntry(
-        existing.status,
-        assetData.status,
-        statusChangeReason || `Status updated from ${existing.status} to ${assetData.status} via edit`,
-        null
-      );
-      updatedHistory = [historyEntry, ...updatedHistory];
-    }
-
-    const updated = {
-      ...assetData,
-      statusHistory: updatedHistory,
-    };
-
-    setAssets((prev) => prev.map((a) => (a.id === assetData.id ? updated : a)));
-    return updated;
-  };
-
-  const deleteAsset = (assetId) => {
-    // Remove asset from current catalog while preserving lifetime assignment audit records
-    setAssets((prev) => prev.filter((a) => a.id !== assetId));
-  };
-
-  /**
-   * Transition Asset Status with lifecycle validation rules:
-   * Statuses: 'In Stock' | 'Assigned' | 'In Use' | 'In Repair' | 'Returned' | 'Disposed'
-   * Enforces rules:
-   * - Disposed is terminal (no transitions allowed out).
-   * - Cannot dispose an asset with an active assignment.
-   * - Cannot transition an asset with an active assignment to In Stock (must be returned first).
-   * - Repaired asset -> In Stock only if it has no active assignment.
-   * - Records status transition history with previousStatus, newStatus, timestamp, reason, actor (null).
-   */
-  const transitionAssetStatus = (assetId, newStatus, reason = '') => {
-    const targetAsset = assets.find((a) => a.id === assetId);
-    if (!targetAsset) return { success: false, error: 'Asset not found.' };
-
-    const currentStatus = targetAsset.status;
-
-    // Disposed is a terminal state
-    if (currentStatus === 'Disposed') {
-      return {
-        success: false,
-        error: 'Cannot transition from Disposed state. Asset has been permanently decommissioned.',
-      };
-    }
-
-    if (currentStatus === newStatus) {
-      return { success: false, error: `Asset is already in ${newStatus} state.` };
-    }
-
-    // Check active assignment
-    const hasActiveAssignment = assignments.some(
-      (asg) => asg.assetId === assetId && asg.status === 'Active'
-    );
-
-    // Rule 3: Do not allow an asset with an active assignment to become available or be disposed.
-    if (hasActiveAssignment) {
-      if (newStatus === 'In Stock') {
-        return {
-          success: false,
-          error: 'Cannot transition asset to In Stock while an active assignment exists. Return the equipment from custodian first.',
+  const addAsset = async (assetData) => {
+    try {
+      const created = await assetService.createAsset(assetData);
+      setAssets((prev) => [created, ...prev]);
+      syncDependentData();
+      return { success: true, asset: created };
+    } catch (err) {
+      console.error('[AppContext] Failed to add asset:', err);
+      if (connectionStatus === 'offline') {
+        const localAsset = {
+          ...assetData,
+          id: assetData.id || `ast-${Date.now()}`,
+          status: assetData.status || 'In Stock',
+          statusHistory: [
+            {
+              id: `sh-local-${Date.now()}`,
+              previousStatus: null,
+              newStatus: assetData.status || 'In Stock',
+              timestamp: new Date().toISOString(),
+              reason: 'Initial asset registration (offline)',
+              actor: null,
+            },
+          ],
         };
+        setAssets((prev) => [localAsset, ...prev]);
+        return { success: true, asset: localAsset };
       }
-      if (newStatus === 'Disposed') {
-        return {
-          success: false,
-          error: 'Cannot dispose an asset with an active assignment. Conclude custodian assignment before decommissioning.',
-        };
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateAsset = async (assetData, statusChangeReason = '', actor = null) => {
+    try {
+      const updated = await assetService.updateAsset(assetData.id, assetData, statusChangeReason, actor);
+      setAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      syncDependentData();
+      return { success: true, asset: updated };
+    } catch (err) {
+      console.error('[AppContext] Failed to update asset:', err);
+      if (connectionStatus === 'offline') {
+        setAssets((prev) => prev.map((a) => (a.id === assetData.id ? { ...a, ...assetData } : a)));
+        return { success: true, asset: assetData };
       }
+      return { success: false, error: err.message };
     }
+  };
 
-    // Rule 2: repaired asset -> In Stock only if it has no active assignment
-    if (currentStatus === 'In Repair' && newStatus === 'In Stock' && hasActiveAssignment) {
-      return {
-        success: false,
-        error: 'Repaired asset cannot transition to In Stock while an active assignment is open.',
-      };
+  const transitionAssetStatus = async (assetId, newStatus, reason = '', actor = null) => {
+    try {
+      const updated = await assetService.updateAssetStatus(assetId, newStatus, reason, actor);
+      setAssets((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+
+      // If returned, refresh assignments list as well
+      if (newStatus === 'Returned') {
+        const asgRes = await assignmentService.getAssignments({ limit: 100 }).catch(() => null);
+        if (asgRes?.assignments) setAssignments(asgRes.assignments);
+      }
+
+      syncDependentData();
+      return { success: true, asset: updated };
+    } catch (err) {
+      console.error('[AppContext] Failed to transition asset status:', err);
+      if (connectionStatus === 'offline') {
+        setAssets((prev) =>
+          prev.map((a) => (a.id === assetId ? { ...a, status: newStatus } : a))
+        );
+        return { success: true };
+      }
+      return { success: false, error: err.message };
     }
+  };
 
-    // Rule 2: disposal -> Disposed only when no active assignment exists
-    if (newStatus === 'Disposed' && hasActiveAssignment) {
-      return {
-        success: false,
-        error: 'Cannot dispose asset while an active assignment exists.',
-      };
+  const deleteAsset = async (assetId) => {
+    try {
+      await assetService.deleteAsset(assetId);
+      setAssets((prev) => prev.filter((a) => a.id !== assetId));
+      syncDependentData();
+      return { success: true };
+    } catch (err) {
+      console.error('[AppContext] Failed to delete asset:', err);
+      if (connectionStatus === 'offline') {
+        setAssets((prev) => prev.filter((a) => a.id !== assetId));
+        return { success: true };
+      }
+      return { success: false, error: err.message };
     }
-
-    const today = new Date().toISOString().split('T')[0];
-    const historyEntry = createStatusHistoryEntry(currentStatus, newStatus, reason, null);
-
-    // Handle side effects of status transitions
-    let updatedAssignedTo = targetAsset.assignedTo;
-
-    if (newStatus === 'Returned') {
-      // Returning an asset: conclude active assignment and record notes
-      setAssignments((prev) =>
-        prev.map((asg) => {
-          if (asg.assetId === assetId && asg.status === 'Active') {
-            const returnNote = reason.trim() ? ` [${reason.trim()}]` : '';
-            return {
-              ...asg,
-              status: 'Returned',
-              returnedDate: today,
-              notes: `${asg.notes || ''}${returnNote}`.trim(),
-            };
-          }
-          return asg;
-        })
-      );
-      updatedAssignedTo = null;
-    } else if (newStatus === 'In Stock' || newStatus === 'Disposed') {
-      updatedAssignedTo = null;
-    }
-
-    setAssets((prev) =>
-      prev.map((a) => {
-        if (a.id === assetId) {
-          const prevHistory = Array.isArray(a.statusHistory) ? a.statusHistory : [];
-          return {
-            ...a,
-            status: newStatus,
-            assignedTo: updatedAssignedTo,
-            statusHistory: [historyEntry, ...prevHistory],
-          };
-        }
-        return a;
-      })
-    );
-
-    return { success: true };
   };
 
   // ==========================================
   // Assignment Operations
   // ==========================================
-  const assignAsset = ({ assetId, employeeId, assignedDate = '', expectedReturnDate = '', notes = '' }) => {
-    const targetAsset = assets.find((a) => a.id === assetId);
-    const targetEmployee = employees.find((e) => e.id === employeeId);
+  const assignAsset = async ({ assetId, employeeId, assignedDate, expectedReturnDate, notes, actor }) => {
+    try {
+      const createdAsg = await assignmentService.createAssignment({
+        assetId,
+        employeeId,
+        assignedDate,
+        expectedReturnDate,
+        notes,
+        actor,
+      });
 
-    if (!targetAsset) return { success: false, error: 'Selected asset does not exist.' };
-    if (!targetEmployee) return { success: false, error: 'Selected employee does not exist.' };
+      // Synchronize affected asset and employee records
+      const [astRes, empRes] = await Promise.all([
+        assetService.getAssetById(assetId).catch(() => null),
+        employeeService.getEmployeeById(employeeId).catch(() => null),
+      ]);
 
-    if (targetEmployee.status !== 'Active') {
-      return {
-        success: false,
-        error: `Cannot assign equipment to inactive employee (${targetEmployee.name}).`,
-      };
+      if (astRes) {
+        setAssets((prev) => prev.map((a) => (a.id === assetId ? astRes : a)));
+      }
+      if (empRes) {
+        setEmployees((prev) => prev.map((e) => (e.id === employeeId ? empRes : e)));
+      }
+
+      setAssignments((prev) => [createdAsg, ...prev]);
+      syncDependentData();
+      return { success: true, assignment: createdAsg };
+    } catch (err) {
+      console.error('[AppContext] Failed to assign asset:', err);
+      if (connectionStatus === 'offline') {
+        const localAsg = {
+          id: `asg-${Date.now()}`,
+          assetId,
+          employeeId,
+          assignedDate: assignedDate || new Date().toISOString().split('T')[0],
+          expectedReturnDate: expectedReturnDate || '',
+          returnedDate: null,
+          notes: notes || '',
+          status: 'Active',
+        };
+        setAssignments((prev) => [localAsg, ...prev]);
+        setAssets((prev) => prev.map((a) => (a.id === assetId ? { ...a, status: 'Assigned' } : a)));
+        return { success: true, assignment: localAsg };
+      }
+      return { success: false, error: err.message };
     }
-
-    // Prevent assigning already assigned asset
-    if (targetAsset.status === 'Assigned' || targetAsset.status === 'In Use') {
-      return {
-        success: false,
-        error: `Asset ${targetAsset.assetCode} is already assigned to ${targetAsset.assignedTo?.name || 'another employee'}.`,
-      };
-    }
-
-    // Rule 3: Do not allow disposed or in-repair assets to be assigned
-    if (targetAsset.status === 'Disposed') {
-      return { success: false, error: 'Cannot assign a disposed asset.' };
-    }
-
-    if (targetAsset.status === 'In Repair') {
-      return { success: false, error: 'Cannot assign an asset currently under maintenance / repair.' };
-    }
-
-    // Check if asset already has an active assignment record
-    const hasActiveAssignment = assignments.some(
-      (asg) => asg.assetId === assetId && asg.status === 'Active'
-    );
-    if (hasActiveAssignment) {
-      return {
-        success: false,
-        error: `Asset ${targetAsset.assetCode} already has an active assignment in progress.`,
-      };
-    }
-
-    const today = new Date().toISOString().split('T')[0];
-    const checkoutDate = assignedDate || today;
-
-    // Date logic check
-    if (expectedReturnDate && expectedReturnDate < checkoutDate) {
-      return {
-        success: false,
-        error: 'Expected return date cannot be earlier than checkout date.',
-      };
-    }
-
-    const newAssignment = {
-      id: `asg-${Date.now()}`,
-      assetId,
-      employeeId,
-      assignedDate: checkoutDate,
-      expectedReturnDate: expectedReturnDate || '',
-      returnedDate: null,
-      notes: notes.trim(),
-      status: 'Active',
-    };
-
-    const historyEntry = createStatusHistoryEntry(
-      targetAsset.status,
-      'Assigned',
-      notes.trim() || `Assigned to ${targetEmployee.name} (${targetEmployee.employeeCode})`,
-      null
-    );
-
-    // 1. Update Asset to 'Assigned' and link employee, and append status history
-    setAssets((prev) =>
-      prev.map((a) => {
-        if (a.id === assetId) {
-          const prevHistory = Array.isArray(a.statusHistory) ? a.statusHistory : [];
-          return {
-            ...a,
-            status: 'Assigned',
-            assignedTo: {
-              id: targetEmployee.id,
-              name: targetEmployee.name,
-              department: targetEmployee.department,
-              email: targetEmployee.email,
-            },
-            statusHistory: [historyEntry, ...prevHistory],
-          };
-        }
-        return a;
-      })
-    );
-
-    // 2. Append new assignment
-    setAssignments((prev) => [newAssignment, ...prev]);
-
-    return { success: true, assignment: newAssignment };
   };
 
-  const returnAsset = ({ assignmentId, returnedDate = '', returnNotes = '', returnStatus = 'Returned' }) => {
-    const targetAssignment = assignments.find((asg) => asg.id === assignmentId);
-    if (!targetAssignment) return { success: false, error: 'Assignment record not found.' };
+  const returnAsset = async ({ assignmentId, returnedDate, returnNotes, returnStatus, actor }) => {
+    try {
+      const result = await assignmentService.returnAssignment(assignmentId, {
+        returnedDate,
+        notes: returnNotes,
+        returnStatus,
+        actor,
+      });
 
-    const targetAsset = assets.find((a) => a.id === targetAssignment.assetId);
+      if (result.assignment) {
+        setAssignments((prev) => prev.map((asg) => (asg.id === assignmentId ? result.assignment : asg)));
+      }
 
-    const actualReturnDate = returnedDate || new Date().toISOString().split('T')[0];
+      // Re-fetch updated asset & employee states
+      const targetAsg = assignments.find((a) => a.id === assignmentId);
+      if (targetAsg?.assetId) {
+        const fullAsset = await assetService.getAssetById(targetAsg.assetId).catch(() => null);
+        if (fullAsset) {
+          setAssets((prev) => prev.map((a) => (a.id === fullAsset.id ? fullAsset : a)));
+        }
+      }
 
-    // Date logic validation
-    if (targetAssignment.assignedDate && actualReturnDate < targetAssignment.assignedDate) {
-      return {
-        success: false,
-        error: `Return date (${actualReturnDate}) cannot be earlier than checkout date (${targetAssignment.assignedDate}).`,
-      };
+      const empsRes = await employeeService.getEmployees({ limit: 100 }).catch(() => null);
+      if (empsRes?.employees) setEmployees(empsRes.employees);
+
+      syncDependentData();
+      return { success: true, result };
+    } catch (err) {
+      console.error('[AppContext] Failed to return asset:', err);
+      if (connectionStatus === 'offline') {
+        setAssignments((prev) =>
+          prev.map((asg) =>
+            asg.id === assignmentId
+              ? { ...asg, status: 'Returned', returnedDate: returnedDate || new Date().toISOString().split('T')[0] }
+              : asg
+          )
+        );
+        return { success: true };
+      }
+      return { success: false, error: err.message };
     }
-
-    const nextAssetStatus = returnStatus === 'In Stock' ? 'In Stock' : 'Returned';
-
-    const historyEntry = createStatusHistoryEntry(
-      targetAsset?.status || 'Assigned',
-      nextAssetStatus,
-      returnNotes.trim() || `Equipment returned from custodian assignment (${nextAssetStatus})`,
-      null
-    );
-
-    // 1. Mark Assignment as 'Returned'
-    setAssignments((prev) =>
-      prev.map((asg) => {
-        if (asg.id === assignmentId) {
-          const combinedNotes = returnNotes.trim()
-            ? `${asg.notes ? asg.notes + ' | ' : ''}Return note: ${returnNotes.trim()}`
-            : asg.notes;
-          return {
-            ...asg,
-            status: 'Returned',
-            returnedDate: actualReturnDate,
-            notes: combinedNotes,
-          };
-        }
-        return asg;
-      })
-    );
-
-    // 2. Update Asset status to nextAssetStatus ('Returned' or 'In Stock') and clear assignedTo
-    setAssets((prev) =>
-      prev.map((a) => {
-        if (a.id === targetAssignment.assetId) {
-          const prevHistory = Array.isArray(a.statusHistory) ? a.statusHistory : [];
-          return {
-            ...a,
-            status: nextAssetStatus,
-            assignedTo: null,
-            statusHistory: [historyEntry, ...prevHistory],
-          };
-        }
-        return a;
-      })
-    );
-
-    return { success: true };
   };
 
   // ==========================================
@@ -578,34 +508,43 @@ export function AppProvider({ children }) {
     }).length;
   };
 
-  // Reset to initial mock data (for test/demonstration convenience)
+  // Reset to initial defaults (clears local cache and triggers server reload)
   const resetToDefaults = () => {
-    setAssets(MOCK_ASSETS);
-    setCategories(MOCK_CATEGORIES);
-    setEmployees(MOCK_EMPLOYEES);
-    setAssignments(MOCK_ASSIGNMENTS);
     localStorage.removeItem(STORAGE_KEYS.ASSETS);
     localStorage.removeItem(STORAGE_KEYS.CATEGORIES);
     localStorage.removeItem(STORAGE_KEYS.EMPLOYEES);
     localStorage.removeItem(STORAGE_KEYS.ASSIGNMENTS);
+    loadServerData();
   };
 
   const value = {
+    // Live Server Connection & Status
+    connectionStatus,
+    isLoading,
+    error,
+    dashboardStats,
+    retryConnection: loadServerData,
+    refreshData: loadServerData,
+
+    // Core datasets
     assets,
     categories,
     employees,
     assignments,
+
     // Category actions
     addCategory,
     updateCategory,
     deleteCategory,
     getCategoryAssetCount,
+
     // Employee actions
     addEmployee,
     updateEmployee,
     deleteEmployee,
     getEmployeeAssignedAssets,
     getEmployeeAssignmentHistory,
+
     // Asset actions
     addAsset,
     updateAsset,
@@ -613,9 +552,11 @@ export function AppProvider({ children }) {
     transitionAssetStatus,
     getAssetActiveAssignment,
     getAssetAssignmentHistory,
+
     // Assignment actions
     assignAsset,
     returnAsset,
+
     // Reset
     resetToDefaults,
   };

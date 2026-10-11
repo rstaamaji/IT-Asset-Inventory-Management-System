@@ -109,16 +109,24 @@ export default function Assets() {
     setIsFormOpen(true);
   };
 
-  const handleSaveAsset = (assetData, statusChangeReason = '') => {
+  const handleSaveAsset = async (assetData, statusChangeReason = '') => {
     const exists = assets.some((a) => a.id === assetData.id);
 
     if (exists) {
       // UPDATE
-      updateAsset(assetData, statusChangeReason);
+      const res = await updateAsset(assetData, statusChangeReason);
+      if (res && res.success === false) {
+        alert(res.error || 'Failed to update asset');
+        return;
+      }
       showNotification(`Asset ${assetData.assetCode} successfully updated.`);
     } else {
       // CREATE
-      addAsset(assetData);
+      const res = await addAsset(assetData);
+      if (res && res.success === false) {
+        alert(res.error || 'Failed to create asset');
+        return;
+      }
       showNotification(`Asset ${assetData.assetCode} successfully created and registered.`);
     }
 
@@ -130,17 +138,21 @@ export default function Assets() {
     setAssetToDelete(asset);
   };
 
-  const handleConfirmDelete = (assetId) => {
+  const handleConfirmDelete = async (assetId) => {
     const target = assets.find((a) => a.id === assetId);
-    deleteAsset(assetId);
+    const res = await deleteAsset(assetId);
+    if (res && res.success === false) {
+      alert(res.error || 'Failed to delete asset');
+      return;
+    }
     setAssetToDelete(null);
     if (target) {
       showNotification(`Asset ${target.assetCode} (${target.assetName}) deleted.`);
     }
   };
 
-  const handleTransitionSubmit = (assetId, newStatus, reason) => {
-    const res = transitionAssetStatus(assetId, newStatus, reason);
+  const handleTransitionSubmit = async (assetId, newStatus, reason) => {
+    const res = await transitionAssetStatus(assetId, newStatus, reason);
     if (res.success) {
       const asset = assets.find((a) => a.id === assetId);
       showNotification(`Asset ${asset?.assetCode || ''} transitioned to ${newStatus}.`);

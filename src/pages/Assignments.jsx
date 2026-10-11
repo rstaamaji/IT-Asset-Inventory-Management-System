@@ -113,8 +113,8 @@ export default function Assignments() {
   };
 
   // ---- Workflow Handlers ----
-  const handleAssignSubmit = (assignmentData) => {
-    const result = assignAsset(assignmentData);
+  const handleAssignSubmit = async (assignmentData) => {
+    const result = await assignAsset(assignmentData);
     if (result.success) {
       const asset = assets.find((a) => a.id === assignmentData.assetId);
       const employee = employees.find((e) => e.id === assignmentData.employeeId);
@@ -129,8 +129,8 @@ export default function Assignments() {
     setReturnContext({ assignment, asset, employee });
   };
 
-  const handleReturnSubmit = ({ assignmentId, returnedDate, returnNotes, returnStatus }) => {
-    const result = returnAsset({ assignmentId, returnedDate, returnNotes, returnStatus });
+  const handleReturnSubmit = async ({ assignmentId, returnedDate, returnNotes, returnStatus }) => {
+    const result = await returnAsset({ assignmentId, returnedDate, returnNotes, returnStatus });
     if (result.success) {
       showNotification(`Equipment return completed. Asset transitioned to ${returnStatus || 'Returned'}.`);
       setReturnContext(null);

@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 
 const ROUTE_LABELS = {
   '/':           { breadcrumb: ['Dashboard'],                 title: 'Dashboard'   },
@@ -13,6 +14,7 @@ const ROUTE_LABELS = {
 export default function Topbar({ sidebarCollapsed, onOpenMobile }) {
   const location = useLocation();
   const routeInfo = ROUTE_LABELS[location.pathname] ?? { breadcrumb: ['App'], title: 'Page' };
+  const { connectionStatus, retryConnection, error } = useApp();
 
   return (
     <header className={`topbar${sidebarCollapsed ? ' sidebar-collapsed' : ''}`}>
@@ -57,6 +59,47 @@ export default function Topbar({ sidebarCollapsed, onOpenMobile }) {
       </div>
 
       <div className="topbar-right">
+        {/* Server Connection Status */}
+        {connectionStatus === 'connected' && (
+          <span
+            className="badge badge-green"
+            style={{ fontSize: '0.75rem', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            title="Connected to live PostgreSQL API"
+          >
+            <span className="badge-dot green" />
+            API Connected
+          </span>
+        )}
+        {connectionStatus === 'connecting' && (
+          <span
+            className="badge badge-blue"
+            style={{ fontSize: '0.75rem', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <span className="badge-dot blue" />
+            Connecting...
+          </span>
+        )}
+        {connectionStatus === 'offline' && (
+          <button
+            type="button"
+            onClick={retryConnection}
+            className="badge badge-amber"
+            style={{
+              fontSize: '0.75rem',
+              padding: '3px 8px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer',
+              border: 'none',
+            }}
+            title={error || 'Backend server is offline. Click to retry connection.'}
+          >
+            <span className="badge-dot amber" />
+            Offline · Retry
+          </button>
+        )}
+
         {/* Notification bell */}
         <button className="topbar-icon-btn" aria-label="Notifications">
           <svg viewBox="0 0 20 20" fill="currentColor">

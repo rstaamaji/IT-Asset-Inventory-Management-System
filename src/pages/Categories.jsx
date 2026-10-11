@@ -103,16 +103,24 @@ export default function Categories() {
     setIsFormOpen(true);
   };
 
-  const handleSaveCategory = (categoryData) => {
+  const handleSaveCategory = async (categoryData) => {
     const exists = categories.some((c) => c.id === categoryData.id);
 
     if (exists) {
       // UPDATE
-      updateCategory(categoryData);
+      const res = await updateCategory(categoryData);
+      if (res && res.success === false) {
+        alert(res.error || 'Failed to update category');
+        return;
+      }
       showNotification(`Category "${categoryData.name}" successfully updated.`);
     } else {
       // CREATE
-      addCategory(categoryData);
+      const res = await addCategory(categoryData);
+      if (res && res.success === false) {
+        alert(res.error || 'Failed to create category');
+        return;
+      }
       showNotification(`Category "${categoryData.name}" successfully created.`);
     }
 
@@ -124,9 +132,13 @@ export default function Categories() {
     setCategoryToDelete(category);
   };
 
-  const handleConfirmDelete = (categoryId) => {
+  const handleConfirmDelete = async (categoryId) => {
     const target = categories.find((c) => c.id === categoryId);
-    deleteCategory(categoryId);
+    const res = await deleteCategory(categoryId);
+    if (res && res.success === false) {
+      alert(res.error || 'Failed to delete category');
+      return;
+    }
     setCategoryToDelete(null);
     if (target) {
       showNotification(`Category "${target.name}" has been deleted.`);

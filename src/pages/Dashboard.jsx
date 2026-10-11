@@ -78,15 +78,15 @@ function AssetTypeIcon({ type }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { assets, categories, employees, assignments } = useApp();
+  const { assets, categories, employees, assignments, dashboardStats, refreshData } = useApp();
   const [refreshedTime, setRefreshedTime] = useState(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   const [refreshNotice, setRefreshNotice] = useState(false);
 
-  // 1. Dynamic Summary Statistics
-  const totalAssets = assets.length;
-  const availableCount = assets.filter((a) => a.status === 'In Stock' || a.status === 'Returned').length;
-  const assignedCount = assets.filter((a) => a.status === 'Assigned' || a.status === 'In Use').length;
-  const inRepairCount = assets.filter((a) => a.status === 'In Repair').length;
+  // 1. Dynamic Summary Statistics (preferring authoritative server aggregation)
+  const totalAssets = dashboardStats?.totalAssets ?? assets.length;
+  const availableCount = dashboardStats?.availableCount ?? assets.filter((a) => a.status === 'In Stock' || a.status === 'Returned').length;
+  const assignedCount = dashboardStats?.assignedCount ?? assets.filter((a) => a.status === 'Assigned' || a.status === 'In Use').length;
+  const inRepairCount = dashboardStats?.inRepairCount ?? assets.filter((a) => a.status === 'In Repair').length;
 
   const stats = [
     {
@@ -211,7 +211,10 @@ export default function Dashboard() {
     });
   }
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
+    if (refreshData) {
+      await refreshData();
+    }
     setRefreshedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     setRefreshNotice(true);
     setTimeout(() => setRefreshNotice(false), 2000);
