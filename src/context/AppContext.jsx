@@ -190,9 +190,8 @@ export function AppProvider({ children }) {
   };
 
   const deleteAsset = (assetId) => {
-    // Remove asset and any linked assignments
+    // Remove asset from current catalog while preserving lifetime assignment audit records
     setAssets((prev) => prev.filter((a) => a.id !== assetId));
-    setAssignments((prev) => prev.filter((asg) => asg.assetId !== assetId));
   };
 
   /**
@@ -269,12 +268,19 @@ export function AppProvider({ children }) {
   // ==========================================
   // Assignment Operations
   // ==========================================
-  const assignAsset = ({ assetId, employeeId, expectedReturnDate = '', notes = '' }) => {
+  const assignAsset = ({ assetId, employeeId, assignedDate = '', expectedReturnDate = '', notes = '' }) => {
     const targetAsset = assets.find((a) => a.id === assetId);
     const targetEmployee = employees.find((e) => e.id === employeeId);
 
     if (!targetAsset) return { success: false, error: 'Selected asset does not exist.' };
     if (!targetEmployee) return { success: false, error: 'Selected employee does not exist.' };
+
+    if (targetEmployee.status !== 'Active') {
+      return {
+        success: false,
+        error: `Cannot assign equipment to inactive employee (${targetEmployee.name}).`,
+      };
+    }
 
     // Prevent assigning already assigned asset
     if (targetAsset.status === 'Assigned' || targetAsset.status === 'In Use') {
@@ -289,15 +295,36 @@ export function AppProvider({ children }) {
     }
 
     if (targetAsset.status === 'In Repair') {
-      return { success: false, error: 'Cannot assign an asset currently under repair.' };
+      return { success: false, error: 'Cannot assign an asset currently under maintenance / repair.' };
+    }
+
+    // Check if asset already has an active assignment record
+    const hasActiveAssignment = assignments.some(
+      (asg) => asg.assetId === assetId && asg.status === 'Active'
+    );
+    if (hasActiveAssignment) {
+      return {
+        success: false,
+        error: `Asset ${targetAsset.assetCode} already has an active assignment in progress.`,
+      };
     }
 
     const today = new Date().toISOString().split('T')[0];
+    const checkoutDate = assignedDate || today;
+
+    // Date logic check
+    if (expectedReturnDate && expectedReturnDate < checkoutDate) {
+      return {
+        success: false,
+        error: 'Expected return date cannot be earlier than checkout date.',
+      };
+    }
+
     const newAssignment = {
       id: `asg-${Date.now()}`,
       assetId,
       employeeId,
-      assignedDate: today,
+      assignedDate: checkoutDate,
       expectedReturnDate: expectedReturnDate || '',
       returnedDate: null,
       notes: notes.trim(),
@@ -334,6 +361,14 @@ export function AppProvider({ children }) {
     if (!targetAssignment) return { success: false, error: 'Assignment record not found.' };
 
     const actualReturnDate = returnedDate || new Date().toISOString().split('T')[0];
+
+    // Date logic validation
+    if (targetAssignment.assignedDate && actualReturnDate < targetAssignment.assignedDate) {
+      return {
+        success: false,
+        error: `Return date (${actualReturnDate}) cannot be earlier than checkout date (${targetAssignment.assignedDate}).`,
+      };
+    }
 
     // 1. Mark Assignment as 'Returned'
     setAssignments((prev) =>

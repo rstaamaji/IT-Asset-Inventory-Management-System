@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import AssignmentTable from '../components/AssignmentTable';
 import AssignmentModal from '../components/AssignmentModal';
 import ReturnAssetModal from '../components/ReturnAssetModal';
+import AssignmentDetailModal from '../components/AssignmentDetailModal';
 import AssetDetailModal from '../components/AssetDetailModal';
 import EmployeeDetailModal from '../components/EmployeeDetailModal';
 
@@ -19,10 +20,13 @@ export default function Assignments() {
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('ALL');
+  const [selectedAssetId, setSelectedAssetId] = useState('ALL');
 
   // Modal states
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [returnContext, setReturnContext] = useState(null); // { assignment, asset, employee }
+  const [viewingAssignment, setViewingAssignment] = useState(null);
   const [viewingAsset, setViewingAsset] = useState(null);
   const [viewingEmployee, setViewingEmployee] = useState(null);
 
@@ -58,24 +62,55 @@ export default function Assignments() {
         return false;
       }
 
-      // 2. Search query matching asset code/name or employee name/code
+      // 2. Employee filter
+      if (selectedEmployeeId !== 'ALL' && asg.employeeId !== selectedEmployeeId) {
+        return false;
+      }
+
+      // 3. Asset filter
+      if (selectedAssetId !== 'ALL' && asg.assetId !== selectedAssetId) {
+        return false;
+      }
+
+      // 4. Search query matching asset code/name, employee name/code/dept, or notes
       if (searchQuery.trim() !== '') {
         const query = searchQuery.trim().toLowerCase();
         const asset = assets.find((a) => a.id === asg.assetId);
         const employee = employees.find((e) => e.id === asg.employeeId);
 
-        const assetCodeMatch = asset?.assetCode.toLowerCase().includes(query) || false;
-        const assetNameMatch = asset?.assetName.toLowerCase().includes(query) || false;
-        const empNameMatch = employee?.name.toLowerCase().includes(query) || false;
-        const empCodeMatch = employee?.employeeCode.toLowerCase().includes(query) || false;
+        const assetCodeMatch = (asset?.assetCode || asg.assetId).toLowerCase().includes(query);
+        const assetNameMatch = (asset?.assetName || '').toLowerCase().includes(query);
+        const empNameMatch = (employee?.name || '').toLowerCase().includes(query);
+        const empCodeMatch = (employee?.employeeCode || asg.employeeId).toLowerCase().includes(query);
+        const empDeptMatch = (employee?.department || '').toLowerCase().includes(query);
         const notesMatch = (asg.notes || '').toLowerCase().includes(query);
 
-        return assetCodeMatch || assetNameMatch || empNameMatch || empCodeMatch || notesMatch;
+        return (
+          assetCodeMatch ||
+          assetNameMatch ||
+          empNameMatch ||
+          empCodeMatch ||
+          empDeptMatch ||
+          notesMatch
+        );
       }
 
       return true;
     });
-  }, [assignments, assets, employees, selectedStatus, searchQuery]);
+  }, [assignments, assets, employees, selectedStatus, selectedEmployeeId, selectedAssetId, searchQuery]);
+
+  const hasActiveFilters =
+    searchQuery !== '' ||
+    selectedStatus !== 'ALL' ||
+    selectedEmployeeId !== 'ALL' ||
+    selectedAssetId !== 'ALL';
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedStatus('ALL');
+    setSelectedEmployeeId('ALL');
+    setSelectedAssetId('ALL');
+  };
 
   // ---- Workflow Handlers ----
   const handleAssignSubmit = (assignmentData) => {
@@ -258,14 +293,44 @@ export default function Assignments() {
               )}
             </div>
 
-            {searchQuery && (
+            {/* Filter by Custodian Employee */}
+            <select
+              className="filter-select"
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              aria-label="Filter by employee"
+            >
+              <option value="ALL">All Employees</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.name} ({emp.employeeCode})
+                </option>
+              ))}
+            </select>
+
+            {/* Filter by Hardware Asset */}
+            <select
+              className="filter-select"
+              value={selectedAssetId}
+              onChange={(e) => setSelectedAssetId(e.target.value)}
+              aria-label="Filter by asset"
+            >
+              <option value="ALL">All Hardware Assets</option>
+              {assets.map((ast) => (
+                <option key={ast.id} value={ast.id}>
+                  {ast.assetCode} - {ast.assetName}
+                </option>
+              ))}
+            </select>
+
+            {hasActiveFilters && (
               <button
                 type="button"
                 className="btn btn-ghost btn-sm"
-                onClick={() => setSearchQuery('')}
+                onClick={handleResetFilters}
                 style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-secondary)' }}
               >
-                Clear Search
+                Reset Filters
               </button>
             )}
           </div>
@@ -281,8 +346,11 @@ export default function Assignments() {
           assets={assets}
           employees={employees}
           onReturnPrompt={handleReturnPrompt}
+          onViewAssignment={(asg, asset, emp) => setViewingAssignment({ assignment: asg, asset, employee: emp })}
           onViewAsset={(asset) => setViewingAsset(asset)}
           onViewEmployee={(emp) => setViewingEmployee(emp)}
+          onResetFilters={handleResetFilters}
+          onOpenAssign={() => setIsAssignOpen(true)}
         />
 
         {/* Card Footer / Record summary */}
@@ -306,9 +374,25 @@ export default function Assignments() {
         isOpen={isAssignOpen}
         assets={assets}
         employees={employees}
+        assignments={assignments}
         onAssign={handleAssignSubmit}
         onClose={() => setIsAssignOpen(false)}
       />
+
+      {/* TRANSACTION DETAIL Modal */}
+      {viewingAssignment && (
+        <AssignmentDetailModal
+          isOpen={Boolean(viewingAssignment)}
+          assignment={viewingAssignment.assignment}
+          asset={viewingAssignment.asset}
+          employee={viewingAssignment.employee}
+          onInitiateReturn={(asg, asset, emp) => {
+            setViewingAssignment(null);
+            handleReturnPrompt(asg, asset, emp);
+          }}
+          onClose={() => setViewingAssignment(null)}
+        />
+      )}
 
       {/* RETURN Equipment Modal */}
       {returnContext && (

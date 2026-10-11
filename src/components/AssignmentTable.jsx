@@ -9,8 +9,11 @@ export default function AssignmentTable({
   assets = [],
   employees = [],
   onReturnPrompt,
+  onViewAssignment,
   onViewAsset,
   onViewEmployee,
+  onResetFilters,
+  onOpenAssign,
 }) {
   if (!assignments || assignments.length === 0) {
     return (
@@ -20,7 +23,19 @@ export default function AssignmentTable({
         </svg>
         <div className="empty-state-title">No assignment records found</div>
         <div className="empty-state-desc">
-          No hardware assignments matched your active search query or status filter.
+          No hardware assignments matched your active search query or filter parameters.
+        </div>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
+          {onResetFilters && (
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onResetFilters}>
+              Reset Filters
+            </button>
+          )}
+          {onOpenAssign && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={onOpenAssign}>
+              Assign Asset
+            </button>
+          )}
         </div>
       </div>
     );
@@ -38,7 +53,7 @@ export default function AssignmentTable({
             <th style={{ width: '120px', minWidth: '115px' }}>Returned Date</th>
             <th style={{ width: '100px', minWidth: '95px' }}>Status</th>
             <th style={{ minWidth: '180px' }}>Notes</th>
-            <th style={{ width: '130px', minWidth: '120px', textAlign: 'center' }}>Action</th>
+            <th style={{ width: '150px', minWidth: '140px', textAlign: 'center' }}>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -166,21 +181,40 @@ export default function AssignmentTable({
 
                 {/* 8. Actions */}
                 <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                  {isActive ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                     <button
                       type="button"
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => onReturnPrompt && onReturnPrompt(asg, asset, employee)}
-                      style={{ padding: '3px 10px', fontSize: 'var(--text-xs)', whiteSpace: 'nowrap' }}
-                      title="Return equipment back to inventory"
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => onViewAssignment && onViewAssignment(asg, asset, employee)}
+                      style={{ padding: '2px 8px', fontSize: 'var(--text-xs)' }}
+                      title="View assignment transaction details"
                     >
-                      Return Asset
+                      Details
                     </button>
-                  ) : (
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                      Completed
-                    </span>
-                  )}
+                    {isActive ? (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => onReturnPrompt && onReturnPrompt(asg, asset, employee)}
+                        style={{ padding: '2px 8px', fontSize: 'var(--text-xs)', whiteSpace: 'nowrap' }}
+                        title="Return equipment back to inventory"
+                      >
+                        Return
+                      </button>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--color-text-muted)',
+                          padding: '2px 6px',
+                          borderRadius: 'var(--radius-sm)',
+                          backgroundColor: 'var(--color-surface-alt)',
+                        }}
+                      >
+                        Returned
+                      </span>
+                    )}
+                  </div>
                 </td>
               </tr>
             );

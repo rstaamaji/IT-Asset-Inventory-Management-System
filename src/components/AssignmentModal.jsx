@@ -6,16 +6,33 @@ import AssetCategoryIcon from './AssetCategoryIcon';
  * Allows assigning an available (In Stock or Returned) IT asset to an active employee.
  * Enforces rule: Already assigned assets cannot be assigned again.
  */
-export default function AssignmentModal({ isOpen, assets = [], employees = [], preSelectedAssetId = null, onAssign, onClose }) {
-  // Filter available assets: only 'In Stock' or 'Returned' assets can be checked out
+export default function AssignmentModal({
+  isOpen,
+  assets = [],
+  employees = [],
+  assignments = [],
+  preSelectedAssetId = null,
+  onAssign,
+  onClose,
+}) {
+  const activeAssignmentAssetIds = new Set(
+    assignments.filter((asg) => asg.status === 'Active').map((asg) => asg.assetId)
+  );
+
+  // Filter available assets: only 'In Stock' or 'Returned' assets without an active assignment
   const availableAssets = assets.filter(
-    (a) => a.status === 'In Stock' || a.status === 'Returned' || a.id === preSelectedAssetId
+    (a) =>
+      (a.status === 'In Stock' || a.status === 'Returned' || a.id === preSelectedAssetId) &&
+      (!activeAssignmentAssetIds.has(a.id) || a.id === preSelectedAssetId) &&
+      a.status !== 'Disposed' &&
+      a.status !== 'In Repair'
   );
 
   const activeEmployees = employees.filter((e) => e.status === 'Active');
 
   const [assetId, setAssetId] = useState(preSelectedAssetId || (availableAssets[0]?.id || ''));
   const [employeeId, setEmployeeId] = useState(activeEmployees[0]?.id || '');
+  const [assignedDate, setAssignedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState({});
@@ -29,16 +46,38 @@ export default function AssignmentModal({ isOpen, assets = [], employees = [], p
     const newErrors = {};
 
     if (!assetId) {
-      newErrors.assetId = 'Please select an asset to assign';
+      newErrors.assetId = 'Please select an eligible asset to assign';
     } else {
       const targetAsset = assets.find((a) => a.id === assetId);
-      if (targetAsset && (targetAsset.status === 'Assigned' || targetAsset.status === 'In Use')) {
-        newErrors.assetId = `This asset is already assigned to ${targetAsset.assignedTo?.name || 'another custodian'}.`;
+      if (!targetAsset) {
+        newErrors.assetId = 'Selected asset not found';
+      } else if (targetAsset.status === 'Assigned' || targetAsset.status === 'In Use') {
+        newErrors.assetId = `This asset is currently assigned to ${targetAsset.assignedTo?.name || 'another custodian'}.`;
+      } else if (targetAsset.status === 'Disposed') {
+        newErrors.assetId = 'Cannot assign a disposed asset.';
+      } else if (targetAsset.status === 'In Repair') {
+        newErrors.assetId = 'Cannot assign an asset currently under maintenance / repair.';
+      } else if (activeAssignmentAssetIds.has(assetId) && assetId !== preSelectedAssetId) {
+        newErrors.assetId = 'This asset already has an active assignment record.';
       }
     }
 
     if (!employeeId) {
-      newErrors.employeeId = 'Please select an employee to receive this asset';
+      newErrors.employeeId = 'Please select an active employee';
+    } else {
+      const targetEmployee = employees.find((e) => e.id === employeeId);
+      if (targetEmployee && targetEmployee.status !== 'Active') {
+        newErrors.employeeId = 'Cannot assign equipment to an inactive employee.';
+      }
+    }
+
+    if (!assignedDate) {
+      newErrors.assignedDate = 'Assigned checkout date is required';
+    }
+
+    // Date logic validation: expectedReturnDate cannot be earlier than assignedDate
+    if (assignedDate && expectedReturnDate && expectedReturnDate < assignedDate) {
+      newErrors.expectedReturnDate = 'Expected return date cannot be earlier than assigned date';
     }
 
     setErrors(newErrors);
@@ -55,6 +94,7 @@ export default function AssignmentModal({ isOpen, assets = [], employees = [], p
     onAssign({
       assetId,
       employeeId,
+      assignedDate,
       expectedReturnDate,
       notes,
     });
@@ -205,21 +245,45 @@ export default function AssignmentModal({ isOpen, assets = [], employees = [], p
               )}
             </div>
 
-            {/* Step 3: Expected Return Date */}
-            <div className="form-group">
-              <label className="form-label" htmlFor="asgExpectedReturn">
-                Expected Return Date (Optional)
-              </label>
-              <input
-                id="asgExpectedReturn"
-                type="date"
-                value={expectedReturnDate}
-                onChange={(e) => setExpectedReturnDate(e.target.value)}
-                className="form-input"
-              />
-              <span className="form-helper">
-                Leave blank if assignment is indefinite or continuous employment standard issue.
-              </span>
+            {/* Step 3: Assignment Dates (Checkout Date & Expected Return Date) */}
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label className="form-label" htmlFor="asgAssignedDate">
+                  Checkout Date <span className="form-required">*</span>
+                </label>
+                <input
+                  id="asgAssignedDate"
+                  type="date"
+                  value={assignedDate}
+                  onChange={(e) => {
+                    setAssignedDate(e.target.value);
+                    if (errors.assignedDate) setErrors((prev) => ({ ...prev, assignedDate: null }));
+                    if (errors.expectedReturnDate) setErrors((prev) => ({ ...prev, expectedReturnDate: null }));
+                  }}
+                  className={`form-input ${errors.assignedDate ? 'has-error' : ''}`}
+                />
+                {errors.assignedDate && <span className="form-error">{errors.assignedDate}</span>}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label" htmlFor="asgExpectedReturn">
+                  Expected Return Date (Optional)
+                </label>
+                <input
+                  id="asgExpectedReturn"
+                  type="date"
+                  value={expectedReturnDate}
+                  onChange={(e) => {
+                    setExpectedReturnDate(e.target.value);
+                    if (errors.expectedReturnDate) setErrors((prev) => ({ ...prev, expectedReturnDate: null }));
+                  }}
+                  className={`form-input ${errors.expectedReturnDate ? 'has-error' : ''}`}
+                />
+                {errors.expectedReturnDate && <span className="form-error">{errors.expectedReturnDate}</span>}
+                <span className="form-helper">
+                  Leave blank if deployment is indefinite.
+                </span>
+              </div>
             </div>
 
             {/* Step 4: Notes */}

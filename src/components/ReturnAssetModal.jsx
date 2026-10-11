@@ -8,15 +8,27 @@ import AssetCategoryIcon from './AssetCategoryIcon';
 export default function ReturnAssetModal({ isOpen, assignment, asset, employee, onConfirmReturn, onClose }) {
   const [returnedDate, setReturnedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [returnNotes, setReturnNotes] = useState('');
+  const [error, setError] = useState('');
 
   if (!isOpen || !assignment) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!returnedDate) {
+      setError('Please specify the actual return date.');
+      return;
+    }
+
+    if (assignment.assignedDate && returnedDate < assignment.assignedDate) {
+      setError(`Return date (${returnedDate}) cannot be earlier than assigned date (${assignment.assignedDate}).`);
+      return;
+    }
+
     onConfirmReturn({
       assignmentId: assignment.id,
       returnedDate,
-      returnNotes,
+      returnNotes: returnNotes.trim(),
     });
   };
 
@@ -106,10 +118,14 @@ export default function ReturnAssetModal({ isOpen, assignment, asset, employee, 
                 id="returnDate"
                 type="date"
                 value={returnedDate}
-                onChange={(e) => setReturnedDate(e.target.value)}
+                onChange={(e) => {
+                  setReturnedDate(e.target.value);
+                  if (error) setError('');
+                }}
                 required
-                className="form-input"
+                className={`form-input ${error ? 'has-error' : ''}`}
               />
+              {error && <span className="form-error">{error}</span>}
             </div>
 
             {/* Condition / Return Notes */}
