@@ -139,7 +139,7 @@ export default function Dashboard() {
     },
   ];
 
-  // 2. Lifecycle Distribution
+  // 2. Lifecycle Distribution (prioritizing database statusDistribution)
   const lifecycleStatuses = [
     { label: 'In Stock',  color: '#6b7280' },
     { label: 'Assigned',  color: '#2563eb' },
@@ -149,60 +149,93 @@ export default function Dashboard() {
     { label: 'Disposed',  color: '#dc2626' },
   ];
 
+  const dbStatusMap = new Map(
+    (dashboardStats?.statusDistribution || []).map((item) => [item.status, item.count])
+  );
+
   const lifecycleSegments = lifecycleStatuses.map((item) => {
-    const count = assets.filter((a) => a.status === item.label).length;
+    const count = dbStatusMap.has(item.label)
+      ? dbStatusMap.get(item.label)
+      : assets.filter((a) => a.status === item.label).length;
     const pct = totalAssets > 0 ? ((count / totalAssets) * 100).toFixed(1) : '0.0';
     return { ...item, count, pct: parseFloat(pct) };
   });
 
-  // 3. Category Overview Breakdown
-  const categoryOverview = categories.map((cat, idx) => {
-    const count = assets.filter((a) => {
-      const aCat = (a.category || '').toLowerCase();
-      const cName = cat.name.toLowerCase();
-      return aCat === cName ||
-        (cName.includes('network') && (aCat === 'router' || aCat === 'network')) ||
-        (cName.includes('mobile') && (aCat === 'smartphone' || aCat === 'mobile')) ||
-        (cName.includes('peripheral') && (aCat === 'keyboard' || aCat === 'mouse'));
-    }).length;
+  // 3. Category Overview Breakdown (prioritizing database categoryDistribution)
+  const categoryOverview = dashboardStats?.categoryDistribution && dashboardStats.categoryDistribution.length > 0
+    ? dashboardStats.categoryDistribution.map((cat, idx) => ({
+        label: cat.name,
+        count: cat.count,
+        color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+      }))
+    : categories.map((cat, idx) => {
+        const count = assets.filter((a) => {
+          const aCat = (a.category || '').toLowerCase();
+          const cName = cat.name.toLowerCase();
+          return aCat === cName ||
+            (cName.includes('network') && (aCat === 'router' || aCat === 'network')) ||
+            (cName.includes('mobile') && (aCat === 'smartphone' || aCat === 'mobile')) ||
+            (cName.includes('peripheral') && (aCat === 'keyboard' || aCat === 'mouse'));
+        }).length;
 
-    return {
-      label: cat.name,
-      count,
-      color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
-    };
-  });
+        return {
+          label: cat.name,
+          count,
+          color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+        };
+      });
 
-  // 4. Dynamic Recent Activity Feed from Assignments & Assets
-  const recentActivities = assignments.slice(0, 6).map((asg) => {
-    const asset = assets.find((a) => a.id === asg.assetId);
-    const emp = employees.find((e) => e.id === asg.employeeId);
-    const assetTitle = asset?.assetName || asg.assetId;
-    const empName = emp?.name || asg.employeeId;
+  // 4. Dynamic Recent Activity Feed (prioritizing authoritative database status history)
+  let recentActivities = [];
+  if (dashboardStats?.recentActivities && dashboardStats.recentActivities.length > 0) {
+    recentActivities = dashboardStats.recentActivities.slice(0, 6).map((act) => {
+      const isReturn = act.newStatus === 'Returned' || act.newStatus === 'In Stock';
+      const isRepair = act.newStatus === 'In Repair';
+      const isDisposed = act.newStatus === 'Disposed';
+      const dotColor = isDisposed ? 'red' : isRepair ? 'amber' : isReturn ? 'gray' : 'blue';
 
-    if (asg.status === 'Active') {
       return {
-        color: 'blue',
+        color: dotColor,
         text: (
           <>
-            <strong>{assetTitle}</strong> assigned to <strong>{empName}</strong>
+            <strong>{act.assetName}</strong> ({act.assetCode}) &rarr; <span className="col-nowrap">{act.newStatus}</span>
+            {act.reason && <span style={{ color: 'var(--color-text-muted)' }}> ({act.reason})</span>}
           </>
         ),
-        meta: `${asg.assignedDate} · Active assignment`,
+        meta: `${new Date(act.timestamp).toLocaleDateString()} · ${act.actor || 'System'}`,
       };
-    }
-    return {
-      color: 'gray',
-      text: (
-        <>
-          <strong>{assetTitle}</strong> checked in from <strong>{empName}</strong>
-        </>
-      ),
-      meta: `${asg.returnedDate || asg.assignedDate} · Returned to stock`,
-    };
-  });
+    });
+  } else {
+    recentActivities = assignments.slice(0, 6).map((asg) => {
+      const asset = assets.find((a) => a.id === asg.assetId);
+      const emp = employees.find((e) => e.id === asg.employeeId);
+      const assetTitle = asset?.assetName || asg.assetId;
+      const empName = emp?.name || asg.employeeId;
 
-  // Fallback if assignments are few
+      if (asg.status === 'Active') {
+        return {
+          color: 'blue',
+          text: (
+            <>
+              <strong>{assetTitle}</strong> assigned to <strong>{empName}</strong>
+            </>
+          ),
+          meta: `${asg.assignedDate} · Active assignment`,
+        };
+      }
+      return {
+        color: 'gray',
+        text: (
+          <>
+            <strong>{assetTitle}</strong> checked in from <strong>{empName}</strong>
+          </>
+        ),
+        meta: `${asg.returnedDate || asg.assignedDate} · Returned to stock`,
+      };
+    });
+  }
+
+  // Fallback if activities are empty
   if (recentActivities.length === 0) {
     recentActivities.push({
       color: 'green',

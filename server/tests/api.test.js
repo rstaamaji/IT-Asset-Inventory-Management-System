@@ -526,3 +526,69 @@ describe('10. Authentication, Session Management, and Role-Based Access Control'
     assert.ok(body.message.includes('Access denied'));
   });
 });
+
+describe('11. Dashboard Analytics Endpoint Security & Shape', () => {
+  test('GET /api/dashboard/stats rejects unauthenticated requests with 401', async () => {
+    const res = await fetch(`${baseUrl}/api/dashboard/stats`);
+    assert.equal(res.status, 401);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Authentication required'));
+  });
+
+  test('GET /api/dashboard/stats rejects invalid token with 401', async () => {
+    const res = await fetch(`${baseUrl}/api/dashboard/stats`, {
+      headers: { Authorization: 'Bearer bad.token.value' },
+    });
+    assert.equal(res.status, 401);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Invalid authentication token'));
+  });
+});
+
+describe('12. Mutation Security & Method Boundaries', () => {
+  test('PUT and DELETE /api/categories/:id reject unauthenticated requests with 401', async () => {
+    const putRes = await fetch(`${baseUrl}/api/categories/cat-1`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Hacked Category' }),
+    });
+    assert.equal(putRes.status, 401);
+
+    const delRes = await fetch(`${baseUrl}/api/categories/cat-1`, {
+      method: 'DELETE',
+    });
+    assert.equal(delRes.status, 401);
+  });
+
+  test('PUT and DELETE /api/employees/:id reject staff users with 403', async () => {
+    const putRes = await fetch(`${baseUrl}/api/employees/emp-1`, {
+      method: 'PUT',
+      headers: staffHeaders,
+      body: JSON.stringify({ name: 'Staff Hacked Employee' }),
+    });
+    assert.equal(putRes.status, 403);
+
+    const delRes = await fetch(`${baseUrl}/api/employees/emp-1`, {
+      method: 'DELETE',
+      headers: staffHeaders,
+    });
+    assert.equal(delRes.status, 403);
+  });
+
+  test('PUT and DELETE /api/assets/:id reject staff users with 403', async () => {
+    const putRes = await fetch(`${baseUrl}/api/assets/ast-1`, {
+      method: 'PUT',
+      headers: staffHeaders,
+      body: JSON.stringify({ assetName: 'Staff Hacked Asset' }),
+    });
+    assert.equal(putRes.status, 403);
+
+    const delRes = await fetch(`${baseUrl}/api/assets/ast-1`, {
+      method: 'DELETE',
+      headers: staffHeaders,
+    });
+    assert.equal(delRes.status, 403);
+  });
+});
