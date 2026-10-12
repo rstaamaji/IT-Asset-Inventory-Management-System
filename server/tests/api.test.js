@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import app from '../app.js';
 import { isValidEmail, isValidDate, parsePagination, ALLOWED_ASSET_STATUSES } from '../middleware/validate.js';
 import { handleDatabaseError } from '../utils/dbErrors.js';
+import { generateToken } from '../middleware/auth.js';
 
 let server;
 let baseUrl;
+let adminHeaders;
+let staffHeaders;
 
 before(async () => {
   await new Promise((resolve) => {
@@ -15,6 +18,30 @@ before(async () => {
       resolve();
     });
   });
+
+  const adminToken = generateToken({
+    id: 'test-admin-id',
+    name: 'Test Administrator',
+    email: 'admin.test@company.com',
+    role: 'Admin',
+  });
+
+  const staffToken = generateToken({
+    id: 'test-staff-id',
+    name: 'Test Staff',
+    email: 'staff.test@company.com',
+    role: 'Staff',
+  });
+
+  adminHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${adminToken}`,
+  };
+
+  staffHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${staffToken}`,
+  };
 });
 
 after(async () => {
@@ -156,7 +183,7 @@ describe('4. Category Endpoint Payload Validation', () => {
   test('POST /api/categories rejects request missing required name field', async () => {
     const res = await fetch(`${baseUrl}/api/categories`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders,
       body: JSON.stringify({ description: 'A category without a name' }),
     });
 
@@ -171,7 +198,7 @@ describe('5. Employee Endpoint Payload Validation', () => {
   test('POST /api/employees rejects missing mandatory fields', async () => {
     const res = await fetch(`${baseUrl}/api/employees`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders,
       body: JSON.stringify({ name: 'Incomplete Employee' }),
     });
 
@@ -184,7 +211,7 @@ describe('5. Employee Endpoint Payload Validation', () => {
   test('POST /api/employees rejects malformed email address', async () => {
     const res = await fetch(`${baseUrl}/api/employees`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders,
       body: JSON.stringify({
         employeeCode: 'EMP-999',
         name: 'Jane Tester',
@@ -204,7 +231,7 @@ describe('5. Employee Endpoint Payload Validation', () => {
   test('POST /api/employees rejects invalid status value', async () => {
     const res = await fetch(`${baseUrl}/api/employees`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders,
       body: JSON.stringify({
         employeeCode: 'EMP-998',
         name: 'Jane Tester',
@@ -227,7 +254,7 @@ describe('6. Asset Endpoint Payload Validation', () => {
   test('POST /api/assets rejects missing required attributes', async () => {
     const res = await fetch(`${baseUrl}/api/assets`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders,
       body: JSON.stringify({
         assetName: 'Incomplete Asset',
       }),
@@ -242,7 +269,7 @@ describe('6. Asset Endpoint Payload Validation', () => {
   test('POST /api/assets rejects invalid lifecycle status value', async () => {
     const res = await fetch(`${baseUrl}/api/assets`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: adminHeaders,
       body: JSON.stringify({
         assetCode: 'AST-999',
         assetName: 'Test Asset',
@@ -264,7 +291,7 @@ describe('7. Assignment Endpoint Payload Validation', () => {
   test('POST /api/assignments rejects missing assetId or employeeId', async () => {
     const res = await fetch(`${baseUrl}/api/assignments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffHeaders,
       body: JSON.stringify({
         notes: 'Trying to assign without specifying asset or employee',
       }),
@@ -279,7 +306,7 @@ describe('7. Assignment Endpoint Payload Validation', () => {
   test('POST /api/assignments rejects malformed assignedDate format', async () => {
     const res = await fetch(`${baseUrl}/api/assignments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffHeaders,
       body: JSON.stringify({
         assetId: 'ast-001',
         employeeId: 'emp-001',
@@ -296,7 +323,7 @@ describe('7. Assignment Endpoint Payload Validation', () => {
   test('POST /api/assignments rejects expectedReturnDate earlier than assignedDate', async () => {
     const res = await fetch(`${baseUrl}/api/assignments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffHeaders,
       body: JSON.stringify({
         assetId: 'ast-001',
         employeeId: 'emp-001',
@@ -315,7 +342,7 @@ describe('7. Assignment Endpoint Payload Validation', () => {
   test('POST /api/assignments/:id/return rejects malformed returnedDate format', async () => {
     const res = await fetch(`${baseUrl}/api/assignments/asg-001/return`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffHeaders,
       body: JSON.stringify({
         returnedDate: '2024-99-99',
       }),
@@ -332,7 +359,7 @@ describe('8. Asset Lifecycle Status Endpoint Validation', () => {
   test('PATCH /api/assets/:id/status rejects request with missing status', async () => {
     const res = await fetch(`${baseUrl}/api/assets/ast-001/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffHeaders,
       body: JSON.stringify({
         reason: 'Missing status payload',
       }),
@@ -347,7 +374,7 @@ describe('8. Asset Lifecycle Status Endpoint Validation', () => {
   test('PATCH /api/assets/:id/status rejects invalid lifecycle status value', async () => {
     const res = await fetch(`${baseUrl}/api/assets/ast-001/status`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: staffHeaders,
       body: JSON.stringify({
         status: 'LostForever',
       }),
@@ -383,5 +410,119 @@ describe('9. Database Concurrency & Constraint Error Mappers', () => {
     assert.equal(capturedStatus, 409);
     assert.equal(capturedPayload.status, 'fail');
     assert.ok(capturedPayload.message.includes('already has an active assignment in progress'));
+  });
+});
+
+describe('10. Authentication, Session Management, and Role-Based Access Control', () => {
+  test('POST /api/auth/login validates required email and password fields', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Email and password are required'));
+  });
+
+  test('POST /api/auth/login rejects invalid email formats', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'not-an-email', password: 'secretpassword' }),
+    });
+
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('valid email address is required'));
+  });
+
+  test('GET /api/auth/me returns 401 when no session cookie or token is provided', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/me`);
+    assert.equal(res.status, 401);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Authentication required'));
+  });
+
+  test('Protected endpoint returns 401 when invalid token is provided', async () => {
+    const res = await fetch(`${baseUrl}/api/categories`, {
+      headers: {
+        Authorization: 'Bearer invalid.token.payload',
+      },
+    });
+    assert.equal(res.status, 401);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Invalid authentication token'));
+  });
+
+  test('POST /api/auth/logout clears session and returns success', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/logout`, {
+      method: 'POST',
+    });
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.status, 'success');
+    assert.ok(body.message.includes('Logged out successfully'));
+  });
+
+  test('Staff token is forbidden (403) from Admin mutating actions (e.g. POST /api/categories)', async () => {
+    const res = await fetch(`${baseUrl}/api/categories`, {
+      method: 'POST',
+      headers: staffHeaders,
+      body: JSON.stringify({
+        name: 'Forbidden Hardware',
+      }),
+    });
+
+    assert.equal(res.status, 403);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Access denied'));
+    assert.ok(body.message.includes('Admin'));
+  });
+
+  test('Staff token is forbidden (403) from Admin mutating actions (e.g. POST /api/employees)', async () => {
+    const res = await fetch(`${baseUrl}/api/employees`, {
+      method: 'POST',
+      headers: staffHeaders,
+      body: JSON.stringify({
+        employeeCode: 'EMP-999',
+        name: 'Staff Trying Create',
+        email: 'staff.attempt@company.com',
+        department: 'Engineering',
+        position: 'Developer',
+        location: 'HQ Floor 1',
+      }),
+    });
+
+    assert.equal(res.status, 403);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Access denied'));
+  });
+
+  test('Staff token is forbidden (403) from Admin asset creation (POST /api/assets)', async () => {
+    const res = await fetch(`${baseUrl}/api/assets`, {
+      method: 'POST',
+      headers: staffHeaders,
+      body: JSON.stringify({
+        assetCode: 'AST-STAFF-FORBIDDEN',
+        assetName: 'Staff Attempt Asset',
+        brand: 'Dell',
+        serialNumber: 'SN-FORBIDDEN-01',
+        location: 'HQ',
+        categoryId: 'cat-1',
+      }),
+    });
+
+    assert.equal(res.status, 403);
+    const body = await res.json();
+    assert.equal(body.status, 'fail');
+    assert.ok(body.message.includes('Access denied'));
   });
 });

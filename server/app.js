@@ -1,5 +1,7 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import healthRoutes from './routes/health.js';
+import authRoutes from './routes/authRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import employeeRoutes from './routes/employeeRoutes.js';
 import assetRoutes from './routes/assetRoutes.js';
@@ -9,9 +11,11 @@ import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
-// Middleware: CORS Handling
+// Middleware: CORS Handling with Credential Support
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin || 'http://localhost:5173';
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   if (req.method === 'OPTIONS') {
@@ -20,9 +24,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware: Body parsers
+// Middleware: Body and Cookie parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Root informational endpoint
 app.get('/', (req, res) => {
@@ -32,6 +37,9 @@ app.get('/', (req, res) => {
     documentation: '/api/health',
     endpoints: [
       '/api/health',
+      '/api/auth/login',
+      '/api/auth/logout',
+      '/api/auth/me',
       '/api/categories',
       '/api/employees',
       '/api/assets',
@@ -43,6 +51,7 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api', healthRoutes);
+app.use('/api/auth', authRoutes);
 app.use('/api', dashboardRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/employees', employeeRoutes);

@@ -4,6 +4,7 @@ import categoryService from '../services/categoryService';
 import employeeService from '../services/employeeService';
 import assignmentService from '../services/assignmentService';
 import dashboardService from '../services/dashboardService';
+import authService from '../services/authService';
 import { MOCK_ASSETS } from '../data/mockAssets';
 import { MOCK_CATEGORIES } from '../data/mockCategories';
 import { MOCK_EMPLOYEES } from '../data/mockEmployees';
@@ -44,6 +45,10 @@ export function AppProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dashboardStats, setDashboardStats] = useState(null);
+
+  // 1b. Authentication & User state
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // 2. Core domain datasets
   const [assets, setAssets] = useState([]);
@@ -98,10 +103,60 @@ export function AppProvider({ children }) {
     }
   }, []);
 
+  /**
+   * Check current session on mount (/api/auth/me)
+   */
+  const checkAuthSession = useCallback(async () => {
+    setIsAuthChecking(true);
+    try {
+      const data = await authService.getCurrentUser();
+      if (data && data.user) {
+        setCurrentUser(data.user);
+      } else {
+        setCurrentUser(null);
+      }
+    } catch {
+      setCurrentUser(null);
+    } finally {
+      setIsAuthChecking(false);
+    }
+  }, []);
+
+  const loginUser = useCallback(async (email, password) => {
+    const data = await authService.login(email, password);
+    if (data && data.user) {
+      setCurrentUser(data.user);
+      // Refresh inventory data after login
+      await loadServerData();
+    }
+    return data;
+  }, [loadServerData]);
+
+  const logoutUser = useCallback(async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setCurrentUser(null);
+    }
+  }, []);
+
   // Initial mount load using async effect
   useEffect(() => {
     let active = true;
     (async () => {
+      // 1. Check auth status first
+      try {
+        const authData = await authService.getCurrentUser().catch(() => null);
+        if (active && authData && authData.user) {
+          setCurrentUser(authData.user);
+        }
+      } catch {
+        // silent
+      } finally {
+        if (active) setIsAuthChecking(false);
+      }
+
+      // 2. Load inventory data
       try {
         const [catsRes, empsRes, astsRes, asgsRes, statsRes] = await Promise.all([
           categoryService.getCategories(),
@@ -525,6 +580,16 @@ export function AppProvider({ children }) {
     dashboardStats,
     retryConnection: loadServerData,
     refreshData: loadServerData,
+
+    // Authentication & Authorization
+    currentUser,
+    isAuthChecking,
+    isAuthenticated: Boolean(currentUser),
+    isAdmin: currentUser?.role === 'Admin',
+    isStaff: currentUser?.role === 'Staff',
+    loginUser,
+    logoutUser,
+    checkAuthSession,
 
     // Core datasets
     assets,

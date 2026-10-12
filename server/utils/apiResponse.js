@@ -37,6 +37,14 @@ export function badRequest(res, message = 'Invalid request payload or parameters
   return fail(res, message, errors, 400);
 }
 
+export function sendSuccess(res, data = {}, message = null, statusCode = 200) {
+  return success(res, data, message, statusCode);
+}
+
+export function sendError(res, message, statusCode = 400, errors = null) {
+  return fail(res, message, errors, statusCode);
+}
+
 export default {
   success,
   created,
@@ -44,4 +52,6 @@ export default {
   notFound,
   conflict,
   badRequest,
+  sendSuccess,
+  sendError,
 };

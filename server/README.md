@@ -512,7 +512,7 @@ Run the automated backend test suite:
 npm run test:api
 ```
 
-The test suite contains 22 automated integration checks across 9 test suites:
+The test suite contains 30 automated integration checks across 10 test suites:
 1. API Foundation & Root Endpoints (`GET /`, fallback `404`)
 2. Validation & Input Normalization Helpers (`parsePagination`, `isValidEmail`, `isValidDate`, `ALLOWED_ASSET_STATUSES`)
 3. Database Error Mapping & HTTP Status Codes (`23505`, `23503`, `23514`)
@@ -522,5 +522,51 @@ The test suite contains 22 automated integration checks across 9 test suites:
 7. Assignment Endpoint Payload Validation (`assetId`/`employeeId` presence, date formats, return date logic)
 8. Asset Lifecycle Status Endpoint Validation (status requirement, invalid status rejection)
 9. Database Concurrency & Constraint Error Mappers (`idx_unique_active_asset_assignment` $\rightarrow$ `409 Conflict`)
+10. Authentication, Session Management, and Role-Based Access Control (RBAC) (login payload validation, email format checking, 401 unauthenticated enforcement, invalid token rejection, 403 staff forbidden on admin actions, logout session clearing)
+
+---
+
+## 9. Authentication & Role-Based Access Control (RBAC)
+
+### 9.1 Session Architecture & Security
+- **Strategy**: Signed JWT delivered via secure **`HttpOnly` cookies** (`auth_token`).
+- **CSRF & XSS Protection**:
+  - `httpOnly: true`: Blocks client-side JavaScript access (`document.cookie`), preventing token exfiltration via XSS.
+  - `sameSite: 'lax'`: Mitigates Cross-Site Request Forgery (CSRF).
+  - `secure: true` in production (`NODE_ENV === 'production'`).
+  - No long-lived sensitive tokens in `localStorage`.
+- **API Client Support**: In addition to cookies, endpoints accept `Authorization: Bearer <token>` for API/CLI consumers.
+- **Login Rate Limiting**: In-memory rate limiting throttles failed login attempts per IP.
+
+### 9.2 Role-Permission Matrix
+
+| Resource / Action | Admin | Staff | Public |
+| :--- | :---: | :---: | :---: |
+| `POST /api/auth/login` | Yes | Yes | Yes |
+| `POST /api/auth/logout` | Yes | Yes | Yes |
+| `GET /api/auth/me` | Yes | Yes | No (401) |
+| `GET /api/dashboard/stats` | Yes | Yes | No (401) |
+| `GET /api/categories`, `/api/categories/:id` | Yes | Yes | No (401) |
+| `POST /api/categories`, `PUT/PATCH`, `DELETE` | Yes | No (403) | No (401) |
+| `GET /api/employees`, `/api/employees/:id` | Yes | Yes | No (401) |
+| `POST /api/employees`, `PUT/PATCH`, `DELETE` | Yes | No (403) | No (401) |
+| `GET /api/assets`, `/api/assets/:id` | Yes | Yes | No (401) |
+| `POST /api/assets`, `PUT/PATCH`, `DELETE` | Yes | No (403) | No (401) |
+| `PATCH/PUT /api/assets/:id/status` (Lifecycle) | Yes | Yes | No (401) |
+| `GET /api/assignments`, `GET /:id` | Yes | Yes | No (401) |
+| `POST /api/assignments` (Checkout) | Yes | Yes | No (401) |
+| `POST/PATCH /api/assignments/:id/return` (Checkin)| Yes | Yes | No (401) |
+
+### 9.3 Admin Bootstrapping CLI
+
+Initialize or update the primary administrator credentials securely:
+
+```bash
+# Uses default placeholder or configured ADMIN_* env variables
+npm run auth:bootstrap-admin
+
+# Or with custom credentials:
+ADMIN_EMAIL="admin@company.com" ADMIN_PASSWORD="MySecurePassword123!" npm run auth:bootstrap-admin
+```
 
 

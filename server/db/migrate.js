@@ -17,19 +17,23 @@ async function runMigrations() {
 
   const client = await pool.connect();
   try {
-    const migrationPath = path.join(__dirname, 'migrations', '001_initial_schema.sql');
-    if (!fs.existsSync(migrationPath)) {
-      throw new Error(`Migration file not found at: ${migrationPath}`);
+    const migrationsDir = path.join(__dirname, 'migrations');
+    if (!fs.existsSync(migrationsDir)) {
+      throw new Error(`Migrations directory not found at: ${migrationsDir}`);
     }
 
-    const sql = fs.readFileSync(migrationPath, 'utf8');
-    console.log('Applying 001_initial_schema.sql...');
+    const files = fs.readdirSync(migrationsDir)
+      .filter((file) => file.endsWith('.sql'))
+      .sort();
 
     await client.query('BEGIN');
-    await client.query(sql);
+    for (const file of files) {
+      console.log(`Applying ${file}...`);
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await client.query(sql);
+      console.log(`✓ Applied ${file}`);
+    }
     await client.query('COMMIT');
-
-    console.log('✓ Migration applied successfully!');
 
     // Query tables list to verify
     const tablesRes = await client.query(`
